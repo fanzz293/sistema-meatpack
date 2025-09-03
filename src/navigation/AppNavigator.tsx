@@ -6,14 +6,18 @@ import CadastrarProdutoScreen from '../screens/common/CadastrarProdutoScreen';
 import ConsultarEstoqueScreen from '../screens/common/ConsultarEstoqueScreen';
 import AdicionarPedidoScreen from '../screens/common/AdicionarPedidoScreen';
 import AcompanharPedidosScreen from '../screens/common/AcompanharPedidosScreen';
+import RegistrarSaidaScreen from '../screens/common/RegistrarSaidaScreen';
+import HistoricoProdutoScreen from '../screens/common/HistoricoProdutoScreen';
 import { Produto } from '../services/database';
 
 export type RootStackParamList = {
   HomeScreen: undefined;
   CadastrarProduto: undefined;
   ConsultarEstoque: undefined;
-  AdicionarPedido: { produtoPreSelecionado?: Produto }; // Adicione esta linha
+  AdicionarPedido: { produtoPreSelecionado?: Produto };
   AcompanharPedidos: { refresh?: boolean };
+  RegistrarSaida: undefined;
+  HistoricoProduto: { produto: Produto };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -26,6 +30,8 @@ export default function AppNavigator() {
       <Stack.Screen name="ConsultarEstoque" component={ConsultarEstoqueScreen} options={{ title: 'Consultar Estoque' }} />
       <Stack.Screen name="AdicionarPedido" component={AdicionarPedidoScreen} options={{ title: 'Adicionar Pedido' }} />
       <Stack.Screen name="AcompanharPedidos" component={AcompanharPedidosScreen} options={{ title: 'Acompanhar Pedidos' }} />
+      <Stack.Screen name="RegistrarSaida" component={RegistrarSaidaScreen} options={{ title: 'Registrar Saída' }} />
+      <Stack.Screen name="HistoricoProduto" component={HistoricoProdutoScreen} options={{ title: 'Histórico do Produto' }} />
     </Stack.Navigator>
   );
 }

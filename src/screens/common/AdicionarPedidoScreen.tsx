@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Alert,
   StyleSheet,
   ScrollView,
@@ -11,8 +10,11 @@ import {
   Platform,
   ImageBackground,
   Animated,
+  TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 import { adicionarPedido, getFornecedores, getProdutos, Produto } from '../../services/database';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -25,33 +27,29 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AdicionarPedido'>;
 interface ItemPedido {
   produto: Produto | null;
   quantidade: string;
-  textoProduto: string;
 }
 
 export default function AdicionarPedidoScreen({ navigation, route }: Props) {
   const [fornecedores, setFornecedores] = useState<string[]>([]);
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([]);
-  const [fornecedor, setFornecedor] = useState('');
+  const [produtosFiltrados, setProdutosFiltrados] = useState<Produto[]>([]);
+  const [fornecedorSelecionado, setFornecedorSelecionado] = useState('');
   const [dataEntrega, setDataEntrega] = useState(new Date());
   const [horaEntrega, setHoraEntrega] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [itens, setItens] = useState<ItemPedido[]>([
-    { produto: null, quantidade: '', textoProduto: '' },
+    { produto: null, quantidade: '' },
   ]);
-  const [showFornecedorSuggestions, setShowFornecedorSuggestions] = useState(false);
-  const [showProdutoSuggestions, setShowProdutoSuggestions] = useState([false]);
-  const [fornecedorInputFocused, setFornecedorInputFocused] = useState(false);
 
-  // Verificar se há um produto pré-selecionado
   useEffect(() => {
     if (route.params && 'produtoPreSelecionado' in route.params && route.params.produtoPreSelecionado) {
       const produto = route.params.produtoPreSelecionado as Produto;
-      setItens([{ produto, quantidade: '', textoProduto: produto.descricao }]);
+      setItens([{ produto, quantidade: '' }]);
       
-      // Se o produto tiver fornecedor, preencher automaticamente
       if (produto.fornecedor) {
-        setFornecedor(produto.fornecedor);
+        setFornecedorSelecionado(produto.fornecedor);
+        filtrarProdutosPorFornecedor(produto.fornecedor);
       }
     }
   }, [route.params]);
@@ -62,72 +60,69 @@ export default function AdicionarPedidoScreen({ navigation, route }: Props) {
       const produtosLista = await getProdutos();
       setFornecedores(fornecedoresLista);
       setProdutosDisponiveis(produtosLista);
+      
+      // Se já tiver um fornecedor selecionado, filtrar produtos
+      if (fornecedorSelecionado) {
+        filtrarProdutosPorFornecedor(fornecedorSelecionado);
+      }
     };
     carregarDados();
   }, []);
 
+  const filtrarProdutosPorFornecedor = (fornecedor: string) => {
+    const produtosFiltrados = produtosDisponiveis.filter(
+      produto => produto.fornecedor === fornecedor
+    );
+    setProdutosFiltrados(produtosFiltrados);
+  };
+
+  const handleFornecedorChange = (fornecedor: string) => {
+    setFornecedorSelecionado(fornecedor);
+    filtrarProdutosPorFornecedor(fornecedor);
+    
+    // Limpar produtos selecionados quando mudar o fornecedor
+    setItens([{ produto: null, quantidade: '' }]);
+  };
+
   const handleAdicionarItem = () => {
-    setItens([...itens, { produto: null, quantidade: '', textoProduto: '' }]);
-    setShowProdutoSuggestions([...showProdutoSuggestions, false]);
+    setItens([...itens, { produto: null, quantidade: '' }]);
   };
 
   const handleRemoverItem = (index: number) => {
     const novosItens = [...itens];
-    const novasSugestoes = [...showProdutoSuggestions];
     novosItens.splice(index, 1);
-    novasSugestoes.splice(index, 1);
     setItens(novosItens);
-    setShowProdutoSuggestions(novasSugestoes);
   };
 
-  const handleProdutoChange = (index: number, text: string) => {
+  const handleProdutoChange = (index: number, produtoCodigo: number) => {
     const novosItens = [...itens];
-    if (!novosItens[index].produto || novosItens[index].produto?.descricao !== text) {
-      novosItens[index] = {
-        ...novosItens[index],
-        produto: null,
-        textoProduto: text
-      };
-    }
-    setItens(novosItens);
-    
-    // Mostrar sugestões enquanto digita
-    const novasSugestoes = [...showProdutoSuggestions];
-    novasSugestoes[index] = true;
-    setShowProdutoSuggestions(novasSugestoes);
-  };
-
-  const focarCampoProduto = (index: number) => {
-    const novasSugestoes = [...showProdutoSuggestions];
-    novasSugestoes[index] = true;
-    setShowProdutoSuggestions(novasSugestoes);
-  };
-
-  const selecionarProduto = (index: number, produto: Produto) => {
-    const novosItens = [...itens];
+    const produtoSelecionado = produtosFiltrados.find(p => p.codigo === produtoCodigo);
     novosItens[index] = {
-      produto: produto,
-      quantidade: novosItens[index].quantidade,
-      textoProduto: produto.descricao
+      ...novosItens[index],
+      produto: produtoSelecionado || null
     };
     setItens(novosItens);
-    
-    // Ocultar sugestões após seleção
-    const novasSugestoes = [...showProdutoSuggestions];
-    novasSugestoes[index] = false;
-    setShowProdutoSuggestions(novasSugestoes);
-    
-    // Se for o primeiro item e o fornecedor estiver vazio, preencher com o fornecedor do produto
-    if (index === 0 && !fornecedor && produto.fornecedor) {
-      setFornecedor(produto.fornecedor);
-    }
   };
 
   const handleQuantidadeChange = (index: number, quantidade: string) => {
+    // Validar se é um número válido
+    if (quantidade === '' || /^\d*\.?\d*$/.test(quantidade)) {
+      const novosItens = [...itens];
+      novosItens[index] = {
+        ...novosItens[index],
+        quantidade: quantidade
+      };
+      setItens(novosItens);
+    }
+  };
+
+  const adjustQuantidade = (index: number, amount: number) => {
     const novosItens = [...itens];
+    const currentValue = parseFloat(novosItens[index].quantidade || '0');
+    const newValue = Math.max(0, currentValue + amount);
     novosItens[index] = {
       ...novosItens[index],
-      quantidade: quantidade
+      quantidade: newValue.toFixed(1)
     };
     setItens(novosItens);
   };
@@ -135,7 +130,6 @@ export default function AdicionarPedidoScreen({ navigation, route }: Props) {
   const handleDataChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
-      // Validar se a data é pelo menos amanhã
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
       const dataSelecionada = new Date(selectedDate);
@@ -157,13 +151,8 @@ export default function AdicionarPedidoScreen({ navigation, route }: Props) {
     }
   };
 
-  const selecionarFornecedor = (fornecedorSelecionado: string) => {
-    setFornecedor(fornecedorSelecionado);
-    setShowFornecedorSuggestions(false);
-  };
-
   const handleAdicionarPedido = async () => {
-    if (!fornecedor) {
+    if (!fornecedorSelecionado) {
       Alert.alert('Erro', 'Selecione um fornecedor.');
       return;
     }
@@ -187,7 +176,7 @@ export default function AdicionarPedidoScreen({ navigation, route }: Props) {
         precoUnitario: item.produto!.precoUnitario,
       })),
       status: 'aguardando' as const,
-      fornecedor,
+      fornecedor: fornecedorSelecionado,
       notaFiscalRecebida: false,
     };
 
@@ -207,152 +196,147 @@ export default function AdicionarPedidoScreen({ navigation, route }: Props) {
       style={styles.background}
       blurRadius={1}
     >
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        <AnimatedView from="top">
-          <Text style={styles.title}>Adicionar Pedido</Text>
-        </AnimatedView>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView contentContainerStyle={styles.contentContainer}>
+          <AnimatedView from="top">
+            <Text style={styles.title}>Adicionar Pedido</Text>
+          </AnimatedView>
 
-        <AnimatedView from="bottom" delay={200}>
-          <Text style={styles.sectionTitle}>Itens do Pedido</Text>
-          {itens.map((item, index) => (
-            <View key={index} style={styles.itemContainer}>
-              <Text style={styles.label}>Produto {index + 1}</Text>
-              <View style={styles.pickerContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Digite o nome do produto"
-                  value={item.textoProduto}
-                  onChangeText={(text) => handleProdutoChange(index, text)}
-                  onFocus={() => focarCampoProduto(index)}
-                  onBlur={() => setTimeout(() => {
-                    const novasSugestoes = [...showProdutoSuggestions];
-                    novasSugestoes[index] = false;
-                    setShowProdutoSuggestions(novasSugestoes);
-                  }, 300)}
-                />
-                {showProdutoSuggestions[index] && (
-                  <View style={styles.suggestionsContainer}>
-                    <ScrollView style={styles.suggestions}>
-                      {produtosDisponiveis
-                        .filter(p => p.descricao.toLowerCase().includes((item.textoProduto || '').toLowerCase()))
-                        .map((p, i) => (
-                          <TouchableOpacity 
-                            key={i} 
-                            onPress={() => selecionarProduto(index, p)}
-                            style={styles.suggestionItemContainer}
-                          >
-                            <Text style={styles.suggestionItem}>{p.descricao}</Text>
-                          </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                  </View>
+          <AnimatedView from="bottom" delay={200}>
+            <Text style={styles.sectionTitle}>Fornecedor</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={fornecedorSelecionado}
+                onValueChange={handleFornecedorChange}
+                style={styles.picker}
+              >
+                <Picker.Item label="Selecione um fornecedor" value="" />
+                {fornecedores.map((fornecedor, index) => (
+                  <Picker.Item key={index} label={fornecedor} value={fornecedor} />
+                ))}
+              </Picker>
+            </View>
+          </AnimatedView>
+
+          <AnimatedView from="bottom" delay={400}>
+            <Text style={styles.sectionTitle}>Itens do Pedido</Text>
+            {itens.map((item, index) => (
+              <View key={index} style={styles.itemContainer}>
+                <Text style={styles.label}>Produto {index + 1}</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={item.produto?.codigo || ''}
+                    onValueChange={(value) => handleProdutoChange(index, Number(value))}
+                    style={styles.picker}
+                    enabled={!!fornecedorSelecionado}
+                  >
+                    <Picker.Item label="Selecione um produto" value="" />
+                    {produtosFiltrados.map((produto) => (
+                      <Picker.Item 
+                        key={produto.codigo} 
+                        label={produto.descricao} 
+                        value={produto.codigo} 
+                      />
+                    ))}
+                  </Picker>
+                </View>
+
+                <Text style={styles.label}>Quantidade (kg)</Text>
+                <View style={styles.quantidadeContainer}>
+                  <TouchableOpacity 
+                    style={styles.quantidadeButton}
+                    onPress={() => adjustQuantidade(index, -0.5)}
+                  >
+                    <Icon name="remove" size={20} color={theme.colors.primary} />
+                  </TouchableOpacity>
+                  
+                  <TextInput
+                    style={styles.quantidadeInput}
+                    value={item.quantidade}
+                    onChangeText={(text) => handleQuantidadeChange(index, text)}
+                    keyboardType="numeric"
+                    placeholder="0.0"
+                    textAlign="center"
+                  />
+                  
+                  <TouchableOpacity 
+                    style={styles.quantidadeButton}
+                    onPress={() => adjustQuantidade(index, 0.5)}
+                  >
+                    <Icon name="add" size={20} color={theme.colors.primary} />
+                  </TouchableOpacity>
+                </View>
+
+                {itens.length > 1 && (
+                  <TouchableOpacity 
+                    style={styles.removeButton}
+                    onPress={() => handleRemoverItem(index)}
+                  >
+                    <Icon name="delete" size={20} color={theme.colors.error} />
+                    <Text style={styles.removeButtonText}>Remover Item</Text>
+                  </TouchableOpacity>
                 )}
               </View>
+            ))}
 
-              <Text style={styles.label}>Quantidade (kg)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Quantidade"
-                value={item.quantidade}
-                onChangeText={(text) => handleQuantidadeChange(index, text)}
-                keyboardType="numeric"
+            <TouchableOpacity style={styles.addButton} onPress={handleAdicionarItem}>
+              <Icon name="add" size={20} color={theme.colors.surface} />
+              <Text style={styles.addButtonText}>Adicionar Item</Text>
+            </TouchableOpacity>
+          </AnimatedView>
+
+          <AnimatedView from="bottom" delay={600}>
+            <Text style={styles.sectionTitle}>Data e Hora de Entrega</Text>
+            
+            <Text style={styles.label}>Data de Entrega</Text>
+            <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
+              <Icon name="event" size={20} color={theme.colors.primary} style={styles.dateIcon} />
+              <Text style={styles.dateText}>{dataEntrega.toLocaleDateString('pt-BR')}</Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={dataEntrega}
+                mode="date"
+                display="default"
+                onChange={handleDataChange}
+                minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
               />
-
-              {itens.length > 1 && (
-                <TouchableOpacity 
-                  style={styles.removeButton}
-                  onPress={() => handleRemoverItem(index)}
-                >
-                  <Icon name="remove" size={20} color={theme.colors.error} />
-                  <Text style={styles.removeButtonText}>Remover Item</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ))}
-
-          <TouchableOpacity style={styles.addButton} onPress={handleAdicionarItem}>
-            <Icon name="add" size={20} color={theme.colors.surface} />
-            <Text style={styles.addButtonText}>Adicionar Item</Text>
-          </TouchableOpacity>
-        </AnimatedView>
-
-        <AnimatedView from="bottom" delay={400}>
-          <Text style={styles.sectionTitle}>Fornecedor</Text>
-          <View style={styles.pickerContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Digite o nome do fornecedor"
-              value={fornecedor}
-              onChangeText={setFornecedor}
-              onFocus={() => {
-                setShowFornecedorSuggestions(true);
-                setFornecedorInputFocused(true);
-              }}
-              onBlur={() => {
-                setFornecedorInputFocused(false);
-                setTimeout(() => setShowFornecedorSuggestions(false), 300);
-              }}
-            />
-            {showFornecedorSuggestions && fornecedorInputFocused && (
-              <View style={styles.suggestionsContainer}>
-                <ScrollView style={styles.suggestions}>
-                  {fornecedores
-                    .filter(f => f.toLowerCase().includes(fornecedor.toLowerCase()))
-                    .map((f, index) => (
-                      <TouchableOpacity 
-                        key={index} 
-                        onPress={() => selecionarFornecedor(f)}
-                        style={styles.suggestionItemContainer}
-                      >
-                        <Text style={styles.suggestionItem}>{f}</Text>
-                      </TouchableOpacity>
-                    ))}
-                </ScrollView>
-              </View>
             )}
-          </View>
-        </AnimatedView>
 
-        <AnimatedView from="bottom" delay={600}>
-          <Text style={styles.sectionTitle}>Data e Hora de Entrega</Text>
-          
-          <Text style={styles.label}>Data de Entrega</Text>
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
-            <Icon name="event" size={20} color={theme.colors.primary} style={styles.dateIcon} />
-            <Text style={styles.dateText}>{dataEntrega.toLocaleDateString('pt-BR')}</Text>
-          </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={dataEntrega}
-              mode="date"
-              display="default"
-              onChange={handleDataChange}
-              minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)} // Amanhã
-            />
-          )}
+            <Text style={styles.label}>Hora de Entrega</Text>
+            <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.dateButton}>
+              <Icon name="access-time" size={20} color={theme.colors.primary} style={styles.dateIcon} />
+              <Text style={styles.dateText}>{horaEntrega.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+            {showTimePicker && (
+              <DateTimePicker
+                value={horaEntrega}
+                mode="time"
+                display="default"
+                onChange={handleHoraChange}
+              />
+            )}
+          </AnimatedView>
 
-          <Text style={styles.label}>Hora de Entrega</Text>
-          <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.dateButton}>
-            <Icon name="access-time" size={20} color={theme.colors.primary} style={styles.dateIcon} />
-            <Text style={styles.dateText}>{horaEntrega.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</Text>
-          </TouchableOpacity>
-          {showTimePicker && (
-            <DateTimePicker
-              value={horaEntrega}
-              mode="time"
-              display="default"
-              onChange={handleHoraChange}
-            />
-          )}
-        </AnimatedView>
-
-        <AnimatedView from="bottom" delay={800}>
-          <TouchableOpacity style={styles.concluirButton} onPress={handleAdicionarPedido}>
-            <Icon name="check-circle" size={24} color={theme.colors.surface} />
-            <Text style={styles.concluirButtonText}>Concluir Pedido</Text>
-          </TouchableOpacity>
-        </AnimatedView>
-      </ScrollView>
+          <AnimatedView from="bottom" delay={800}>
+            <TouchableOpacity 
+              style={[
+                styles.concluirButton, 
+                (!fornecedorSelecionado || itens.some(item => !item.produto || !item.quantidade)) && 
+                  styles.concluirButtonDisabled
+              ]} 
+              onPress={handleAdicionarPedido}
+              disabled={!fornecedorSelecionado || itens.some(item => !item.produto || !item.quantidade)}
+            >
+              <Icon name="check-circle" size={24} color={theme.colors.surface} />
+              <Text style={styles.concluirButtonText}>Concluir Pedido</Text>
+            </TouchableOpacity>
+          </AnimatedView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ImageBackground>
   );
 }
@@ -402,45 +386,41 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
     marginLeft: theme.spacing.xs,
   },
-  input: {
-    padding: theme.spacing.m,
-    borderWidth: 1,
-    borderColor: theme.colors.primaryLight,
-    borderRadius: theme.borderRadius.m,
-    marginBottom: theme.spacing.m,
-    backgroundColor: theme.colors.surface,
-    fontSize: 16,
-    color: theme.colors.text,
-  },
   pickerContainer: {
-    marginBottom: theme.spacing.m,
-    position: 'relative',
-    zIndex: 1,
-  },
-  suggestionsContainer: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    zIndex: 2,
-    backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.primaryLight,
     borderRadius: theme.borderRadius.m,
-    maxHeight: 150,
-    ...theme.shadows.m,
+    marginBottom: theme.spacing.m,
+    backgroundColor: theme.colors.surface,
+    overflow: 'hidden',
   },
-  suggestions: {
-    maxHeight: 150,
+  picker: {
+    height: 50,
   },
-  suggestionItemContainer: {
-    padding: theme.spacing.m,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  quantidadeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.m,
   },
-  suggestionItem: {
+  quantidadeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quantidadeInput: {
+    width: 80,
+    height: 40,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryLight,
+    borderRadius: theme.borderRadius.m,
+    textAlign: 'center',
     fontSize: 16,
     color: theme.colors.text,
+    backgroundColor: theme.colors.surface,
   },
   removeButton: {
     flexDirection: 'row',
@@ -495,6 +475,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.m,
     marginTop: theme.spacing.m,
     ...theme.shadows.m,
+  },
+  concluirButtonDisabled: {
+    backgroundColor: theme.colors.textLight,
   },
   concluirButtonText: {
     color: theme.colors.surface,

@@ -55,7 +55,8 @@ export default function LoginScreen({ navigation }: Props) {
       const displayName =
         (cliente && (cliente.nomeCompleto || cliente.apelido)) || cliente?.email || 'Usuário';
       
-      login();
+      // Passar o nome do usuário para o login
+      login({ nome: displayName, email: emailTrim });
       
       Alert.alert('Login realizado', `Bem-vindo(a) ${displayName}!`);
     } catch (err: unknown) {

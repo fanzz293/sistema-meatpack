@@ -23,7 +23,6 @@ import Icon from '@expo/vector-icons/MaterialIcons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConsultarEstoque'>;
 
-// Função auxiliar para formatar valores monetários com segurança
 const formatCurrency = (value: number | undefined): string => {
   if (value === undefined || value === null || isNaN(value)) {
     return '0,00';
@@ -84,13 +83,26 @@ export default function ConsultarEstoqueScreen({ navigation }: Props) {
     setModalVisible(false);
   };
 
+  const handleVerHistorico = () => {
+    if (produtoSelecionado) {
+      setModalVisible(false);
+      navigation.navigate('HistoricoProduto', { produto: produtoSelecionado });
+    }
+  };
+
   const handleEditarProduto = async () => {
     if (!produtoSelecionado) return;
 
     try {
-      if (parseInt(editCodigo) !== produtoSelecionado.codigo) {
+      const novoCodigo = parseInt(editCodigo);
+      
+      // Verificar se o código foi alterado
+      if (novoCodigo !== produtoSelecionado.codigo) {
+        // Verificar se já existe um produto com o novo código
         const todosProdutos = await getProdutos();
-        if (todosProdutos.find(p => p.codigo === parseInt(editCodigo))) {
+        const produtoComMesmoCodigo = todosProdutos.find(p => p.codigo === novoCodigo);
+        
+        if (produtoComMesmoCodigo && produtoComMesmoCodigo.codigo !== produtoSelecionado.codigo) {
           Alert.alert('Erro', 'Já existe um produto com este código.');
           return;
         }
@@ -98,7 +110,7 @@ export default function ConsultarEstoqueScreen({ navigation }: Props) {
 
       const produtoAtualizado: Produto = {
         ...produtoSelecionado,
-        codigo: parseInt(editCodigo),
+        codigo: novoCodigo,
         descricao: editDescricao
       };
 
@@ -156,15 +168,10 @@ export default function ConsultarEstoqueScreen({ navigation }: Props) {
         <Text style={[styles.tableCell, styles.codeCell]}>{item.codigo}</Text>
         <Text style={[styles.tableCell, styles.descCell]} numberOfLines={1} ellipsizeMode="tail">{item.descricao}</Text>
         <Text style={[styles.tableCell, styles.catCell]}>{item.categoria}</Text>
+        <Text style={[styles.tableCell, styles.fornecedorCell]} numberOfLines={1} ellipsizeMode="tail">{item.fornecedor}</Text>
         <Text style={[styles.tableCell, styles.qtyCell]}>{item.quantidade} kg</Text>
         <Text style={[styles.tableCell, styles.priceCell]}>R$ {formatCurrency(item.precoUnitario)}</Text>
         <Text style={[styles.tableCell, styles.totalCell]}>R$ {formatCurrency(item.quantidade * item.precoUnitario)}</Text>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => abrirModal(item)}
-        >
-          <Icon name="settings" size={20} color={theme.colors.primary} />
-        </TouchableOpacity>
       </TouchableOpacity>
     </AnimatedView>
   );
@@ -200,10 +207,10 @@ export default function ConsultarEstoqueScreen({ navigation }: Props) {
             <Text style={[styles.headerCell, styles.codeCell]}>Código</Text>
             <Text style={[styles.headerCell, styles.descCell]}>Descrição</Text>
             <Text style={[styles.headerCell, styles.catCell]}>Categoria</Text>
+            <Text style={[styles.headerCell, styles.fornecedorCell]}>Fornecedor</Text>
             <Text style={[styles.headerCell, styles.qtyCell]}>Qtd (kg)</Text>
             <Text style={[styles.headerCell, styles.priceCell]}>Preço Uni.</Text>
             <Text style={[styles.headerCell, styles.totalCell]}>Valor Total</Text>
-            <Text style={[styles.headerCell, styles.actionCell]}>Ações</Text>
           </View>
         </AnimatedView>
         
@@ -291,6 +298,14 @@ export default function ConsultarEstoqueScreen({ navigation }: Props) {
                     <Icon name="add-shopping-cart" size={18} color="#FFF" />
                     <Text style={styles.modalButtonText}>Fazer Pedido</Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.modalButton, styles.historyButton]}
+                    onPress={handleVerHistorico}
+                  >
+                    <Icon name="history" size={18} color="#FFF" />
+                    <Text style={styles.modalButtonText}>Ver Histórico</Text>
+                  </TouchableOpacity>
                   
                   <TouchableOpacity 
                     style={[styles.modalButton, styles.deleteButton]}
@@ -328,7 +343,11 @@ export default function ConsultarEstoqueScreen({ navigation }: Props) {
                 <TextInput
                   style={styles.input}
                   value={editCodigo}
-                  onChangeText={setEditCodigo}
+                  onChangeText={(text) => {
+                    // Permitir apenas números
+                    const numericValue = text.replace(/[^0-9]/g, '');
+                    setEditCodigo(numericValue);
+                  }}
                   keyboardType="numeric"
                 />
                 
@@ -439,7 +458,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   codeCell: {
-    width: '12%',
+    width: '10%',
   },
   descCell: {
     width: '20%',
@@ -448,6 +467,10 @@ const styles = StyleSheet.create({
   catCell: {
     width: '15%',
   },
+  fornecedorCell: {
+    width: '15%',
+    textAlign: 'left',
+  },
   qtyCell: {
     width: '12%',
   },
@@ -455,14 +478,8 @@ const styles = StyleSheet.create({
     width: '15%',
   },
   totalCell: {
-    width: '15%',
+    width: '13%',
     fontWeight: 'bold',
-  },
-  actionCell: {
-    width: '11%',
-  },
-  actionButton: {
-    padding: theme.spacing.xs,
   },
   listContent: {
     paddingBottom: theme.spacing.xl,
@@ -539,6 +556,9 @@ const styles = StyleSheet.create({
   },
   orderButton: {
     backgroundColor: theme.colors.success,
+  },
+  historyButton: {
+    backgroundColor: theme.colors.secondary,
   },
   deleteButton: {
     backgroundColor: theme.colors.error,

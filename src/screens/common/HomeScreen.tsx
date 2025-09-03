@@ -6,12 +6,12 @@ import { useAuth } from '../../context/AuthContext';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { theme } from '../../styles/theme';
 import AnimatedView from '../../components/AnimatedView';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import Icon from '@expo/vector-icons/MaterialIcons'; 
 
 type Props = NativeStackScreenProps<RootStackParamList, 'HomeScreen'>;
 
 export default function HomeScreen({ navigation }: Props) {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -29,28 +29,34 @@ export default function HomeScreen({ navigation }: Props) {
   const menuItems = [
     {
       title: 'Consultar Estoque',
-      icon: 'inventory',
+      icon: 'inventory-2', // Ícone válido
       screen: 'ConsultarEstoque',
       color: '#8B0000',
     },
     {
       title: 'Adicionar Pedido',
-      icon: 'add-shopping-cart',
+      icon: 'add-shopping-cart', // Ícone válido
       screen: 'AdicionarPedido',
       color: '#A52A2A',
     },
     {
       title: 'Cadastrar Produto',
-      icon: 'playlist-add',
+      icon: 'add-box', // Ícone válido
       screen: 'CadastrarProduto',
       color: '#D2691E',
     },
     {
       title: 'Acompanhar Pedidos',
-      icon: 'list-alt',
+      icon: 'list-alt', // Ícone válido
       screen: 'AcompanharPedidos',
       color: '#CD853F',
       params: { refresh: false },
+    },
+    {
+      title: 'Registrar Saída',
+      icon: 'remove-circle-outline', // Ícone válido
+      screen: 'RegistrarSaida',
+      color: '#8B4513',
     },
   ];
 
@@ -63,6 +69,14 @@ export default function HomeScreen({ navigation }: Props) {
       <View style={styles.container}>
         <AnimatedView from="top" delay={200}>
           <View style={styles.header}>
+            <View style={styles.userInfo}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {user?.nome?.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.greeting}>Olá, {user?.nome}</Text>
+            </View>
             <Text style={styles.title}>MEATPACK</Text>
             <Text style={styles.subtitle}>Gestão de Estoque</Text>
           </View>
@@ -115,6 +129,29 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: theme.spacing.xxl,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.m,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.s,
+  },
+  avatarText: {
+    color: theme.colors.surface,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  greeting: {
+    color: theme.colors.surface,
+    fontSize: 16,
   },
   title: {
     fontSize: 42,
