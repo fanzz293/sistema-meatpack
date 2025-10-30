@@ -121,20 +121,8 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 1. **Cadastro de Produtos**: Utilize códigos únicos para cada produto para melhor controle
 2. **Pedidos**: Sempre confirme o recebimento para atualizar o estoque automaticamente
 3. **Saídas**: Registre sempre o motivo correto para manter o histórico preciso
-4. **Backup**: Exporte regularmente seus dados para preventir perda de informação. 
-
-Dicas a mais sobre postagem de projetos em github x behance
-
-# Estratégia para Apresentação no Behance - Sistema MeatPack
-
-## Estrutura Recomendada para o Projeto no Behance
-
-### 1. **Capa do Projeto**
-- **Imagem Principal**: Mockup elegante do app em uso em um dispositivo móvel
-- **Título**: "MeatPack - Sistema de Gestão de Estoque para Açougues"
-- **Subtítulo**: "Solução completa em React Native para controle de produtos, pedidos e movimentações"
-- **Badges**: React Native · TypeScript · UX Design · Mobile App
-
+4. **Backup**: Exporte regularmente seus dados para preventir perda de informação.
+5. 
 ### 2. **Resumo Executivo**
 ```markdown
 **Desafio**: Desenvolver um sistema móvel completo para gestão de estoque 
