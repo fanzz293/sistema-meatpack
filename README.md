@@ -4,11 +4,13 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg)
 ![Expo](https://img.shields.io/badge/Expo-49.0-000020.svg)
 
-Sistema completo de gestão e controle de estoque desenvolvido especificamente para açougues, oferecendo controle preciso de produtos, pedidos e movimentações de estoque.
+Projeto de extensão desenvolvido na disciplina Programação para Dispositivos Móveis em Aplicativos Android, do curso de Sistemas de Informação da Faculdade Estácio.
+
+Descrição: Sistema de gestão e controle de estoque, desenvolvido para a empresa Meatpack, para o controle preciso de produtos, pedidos e movimentação de estoque. 
 
 ## Funcionalidades Principais
 
-### Autenticação e Segurançad
+### Autenticação e Segurança
 - **Cadastro de Funcionários**: Sistema completo de registro com validação de CPF e senha segura
 - **Login Seguro**: Autenticação com email e senha criptografada
 - **Controle de Acessos**: Diferentes níveis de permissão para usuários
@@ -268,18 +270,8 @@ Login → Menu Principal
 - **Acessibilidade**: Contrastes e tamanhos adequados
 - **Performance**: Otimização para dispositivos móveis
 
-### 8. **Resultados & Impacto**
 
-**Métricas de Sucesso**:
-- Redução de 70% no tempo de registro de movimentações
-- Aumento de 95% na precisão do controle de estoque
-- Eliminação de 100% dos erros de digitação em códigos
-- Acesso offline a todas as funcionalidades
-
-**Depoimento Simulado**:
-> "O MeatPack transformou nosso controle de estoque. Antes tínhamos planilhas espalhadas, agora tudo está centralizado e atualizado em tempo real." - João Silva, Proprietário de Açougue
-
-### 9. **Tecnologias & Ferramentas**
+### 8. **Tecnologias & Ferramentas**
 
 **Desenvolvimento**:
 - React Native · TypeScript · Expo
@@ -292,36 +284,3 @@ Login → Menu Principal
 
 **Versionamento**:
 - Git · GitHub
-
-### 10. **Próximos Passos & Evolução**
-
-**Roadmap Futuro**:
-- [ ] Integração com sistemas fiscais
-- [ ] Relatórios analíticos avançados
-- [ ] Controle de validade de produtos
-- [ ] Sincronização em nuvem
-- [ ] Módulo de vendas integrado
-
----
-
-## Sugestões de Imagens para o Behance
-
-1. **Hero Image**: App em uso em contexto real de açougue
-2. **Grid de Telas**: 6-8 telas principais em disposição harmoniosa
-3. **Fluxo Interativo**: Sequência de telas mostrando um fluxo completo
-4. **Detalhes de UI**: Close em componentes específicos (dropdowns, pickers)
-5. **Mockups Contextualizados**: Dispositivos em ambientes reais
-6. **Processo**: Esboços → Wireframes → Protótipo → App Final
-
-## Paleta de Cores para Apresentação
-
-```css
-/* Cores do Branding */
-Primary: #8B0000      /* Vermelho sangue */
-Secondary: #A52A2A    /* Vermelho terroso */
-Accent: #D2691E       /* Marrom chocolate */
-Background: #F5F5DC   /* Bege claro */
-Text: #2E2E2E         /* Cinza escuro */
-```
-
-Esta estrutura mostrará não apenas o produto final, mas todo o processo de pensamento, pesquisa e solução de problemas que levou ao desenvolvimento do MeatPack, demonstrando suas habilidades completas como desenvolvedor e designer de produtos.
