@@ -110,7 +110,7 @@ sistema-meatpack/
 
 ## Autor
 
-Desenvolvido por Fabrício Vieira - fabricio-vgs33@gmail.com
+Desenvolvido por Fabrício Vieira - fabricio_3066@hotmail.com
 
 ## Licença
 
