@@ -277,10 +277,5 @@ Login → Menu Principal
 - React Native · TypeScript · Expo
 - React Navigation · SQLite · Context API
 
-**Design**:
-- Figma (prototipagem)
-- Adobe Photoshop (mockups)
-- Material Icons
-
 **Versionamento**:
 - Git · GitHub
