@@ -4,7 +4,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg)
 ![Expo](https://img.shields.io/badge/Expo-49.0-000020.svg)
 
-Projeto de extensão desenvolvido na disciplina Programação para Dispositivos Móveis em Aplicativos Android, do curso de Sistemas de Informação da Faculdade Estácio.
+Projeto de extensão desenvolvido durante as aulas da disciplina Programação para Dispositivos Móveis em Aplicativos Android, do curso de Sistemas de Informação da Faculdade Estácio, trazendo solução para uma situação comum no mundo real das empresas: a necessidade de automação da gestão de grandes volumes de mercadorias nas empresas.  
 
 Descrição: Sistema de gestão e controle de estoque, desenvolvido para a empresa Meatpack, para o controle preciso de produtos, pedidos e movimentação de estoque. 
 
