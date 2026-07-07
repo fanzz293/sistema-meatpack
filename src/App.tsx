@@ -1,34 +1,23 @@
-// src/App.tsx
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import AuthNavigator from './navigation/AuthNavigator';
+// C:/Users/fabri/system-meatpack/src/App.tsx
+import React, { useEffect } from 'react';
+import { NavigationContainer } from '@react-navigation/native'; // IMPORTAÇÃO OBRIGATÓRIA
+import { initDB } from './services/database'; 
 import AppNavigator from './navigation/AppNavigator';
-import { View, Text, ActivityIndicator, StatusBar, SafeAreaView } from 'react-native';
-
-function MainNavigator() {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#d00707ff' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#cc0000" />
-        <ActivityIndicator size="large" color="#ffffff" />
-        <Text style={{ marginTop: 10, color: '#ffffff' }}>Verificando autenticação...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  return isAuthenticated ? <AppNavigator /> : <AuthNavigator />;
-}
 
 export default function App() {
+  useEffect(() => {
+    try {
+      // Inicializa o banco de dados e cria a tabela 'clientes' antes do login
+      initDB();
+      console.log('Banco de dados Meatpack inicializado com sucesso.');
+    } catch (error) {
+      console.error('Erro ao inicializar o banco:', error);
+    }
+  }, []);
+
   return (
-    <AuthProvider>
-      <NavigationContainer>
-        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-        <MainNavigator />
-      </NavigationContainer>
-    </AuthProvider>
+    <NavigationContainer>
+      <AppNavigator />
+    </NavigationContainer>
   );
 }

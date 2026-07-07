@@ -1,241 +1,206 @@
 // src/screens/auth/LoginScreen.tsx
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Alert,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  ImageBackground,
-  TouchableOpacity,
-  Animated,
-  Easing,
-} from 'react-native';
-import { loginCliente } from '../../services/database';
-import { useAuth } from '../../context/AuthContext';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../../navigation/AuthStackParamList';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 import { theme } from '../../styles/theme';
-import AnimatedView from '../../components/AnimatedView';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
+import Icon from '@expo/vector-icons/MaterialIcons';
+import * as SQLite from 'expo-sqlite';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+
+const exibirAlerta = (titulo: string, mensagem: string, botoes?: { text: string; onPress?: () => void }[]) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${titulo}\n\n${mensagem}`);
+    const botaoOk = botoes?.find(b => b.onPress);
+    if (botaoOk && botaoOk.onPress) botaoOk.onPress();
+  } else {
+    Alert.alert(titulo, mensagem, botoes);
+  }
+};
 
 export default function LoginScreen({ navigation }: Props) {
-  const { login } = useAuth();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [senha, setSenha] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const titleAnim = new Animated.Value(0);
-
-  React.useEffect(() => {
-    Animated.timing(titleAnim, {
-      toValue: 1,
-      duration: 1200,
-      easing: Easing.out(Easing.back(1.2)),
-      useNativeDriver: true,
-    }).start();
-  }, []);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    const emailTrim = (email ?? '').trim().toLowerCase();
-    const senhaTrim = (senha ?? '').trim();
-
-    if (!emailTrim || !senhaTrim) {
-      Alert.alert('Erro', 'Preencha e-mail e senha.');
+    if (!username || !senha) {
+      exibirAlerta('Aviso', 'Por favor, preencha todos os campos.');
       return;
     }
 
-    setIsLoading(true);
-    
+    setLoading(true);
+
+    // .trim() em ambos os campos para pulverizar espaços invisíveis colados por engano
+    const usuarioLimpo = username.trim().toLowerCase();
+    const senhaLimpa = senha.trim();
+
+    // --------------------------------------------------------------------------------
+    // COMANDO MASTER DE EMERGÊNCIA (BACKDOOR DE RESET)
+    // --------------------------------------------------------------------------------
+    if (usuarioLimpo === 'admin' && senhaLimpa === 'reset') {
+      await AsyncStorage.removeItem('@meatpack:admin_password');
+      setSenha('');
+      setLoading(false);
+      exibirAlerta(
+        'Auditoria de Sistema', 
+        'Memória do LocalStorage limpa com sucesso!\nA senha do Administrador foi restaurada para o padrão de fábrica: 123456abc'
+      );
+      return;
+    }
+
+    // --------------------------------------------------------------------------------
+    // 1. VALIDAÇÃO DO ADMINISTRADOR
+    // --------------------------------------------------------------------------------
+    if (usuarioLimpo === 'admin') {
+      try {
+        const senhaMemory = await AsyncStorage.getItem('@meatpack:admin_password');
+        
+        // Proteção contra falsos positivos de conversão do JS (ex: a string literal "undefined")
+        const senhaOficial = (senhaMemory && senhaMemory !== 'undefined' && senhaMemory !== 'null') 
+          ? senhaMemory.trim() 
+          : '123456abc';
+
+        console.log(`[AUDITORIA] Digitado: "${senhaLimpa}" | O Banco aguarda: "${senhaOficial}"`);
+
+        if (senhaLimpa === senhaOficial) {
+          const usuarioAdmin = {
+            nomeCompleto: 'Administrador Padrão',
+            email: 'admin@meatpack.com',
+            apelido: 'Admin'
+          };
+          setUsername(''); setSenha(''); setLoading(false);
+          navigation.navigate('HomeScreen', { usuarioLogado: usuarioAdmin });
+          return;
+        } else {
+          setLoading(false);
+          exibirAlerta(
+            'Acesso Master Negado', 
+            'A senha digitada não corresponde à credencial do Administrador.\n\n(Dica: se esqueceu a senha alterada, digite a senha "reset" para voltar ao padrão)'
+          );
+          return; // Trava o drop-through
+        }
+      } catch (e) {
+        console.error('Erro ao ler credencial master:', e);
+      }
+    }
+
+    // --------------------------------------------------------------------------------
+    // 2. VALIDAÇÃO DE OPERADORES COMUNS (WEB)
+    // --------------------------------------------------------------------------------
+    if (Platform.OS === 'web') {
+      try {
+        const clientesRaw = await AsyncStorage.getItem('@meatpack_web:clientes');
+        const clientes = clientesRaw ? JSON.parse(clientesRaw) : [];
+
+        const op = clientes.find((c: any) => 
+          c.email.trim().toLowerCase() === usuarioLimpo || 
+          c.apelido.trim().toLowerCase() === usuarioLimpo
+        );
+
+        setLoading(false);
+
+        if (op) {
+          if (op.senha.trim() === senhaLimpa) {
+            setUsername(''); setSenha('');
+            navigation.navigate('HomeScreen', { usuarioLogado: op });
+          } else {
+            exibirAlerta('Senha Incorreta', `A senha informada para o operador "${op.nomeCompleto}" está incorreta.`);
+          }
+        } else {
+          exibirAlerta('Conta Inexistente', `Nenhum operador localizado com o e-mail ou apelido "${username}".`);
+        }
+      } catch (err) {
+        setLoading(false);
+        exibirAlerta('Erro de Memória', 'Não foi possível ler o repositório Web.');
+      }
+      return;
+    }
+
+    // --------------------------------------------------------------------------------
+    // 3. VALIDAÇÃO DE OPERADORES COMUNS (MOBILE / SQLITE)
+    // --------------------------------------------------------------------------------
     try {
-      const cliente = await loginCliente(emailTrim, senhaTrim);
-      const displayName =
-        (cliente && (cliente.nomeCompleto || cliente.apelido)) || cliente?.email || 'Usuário';
-      
-      // Passar o nome do usuário para o login
-      login({ nome: displayName, email: emailTrim });
-      
-      Alert.alert('Login realizado', `Bem-vindo(a) ${displayName}!`);
-    } catch (err: unknown) {
-      console.error('[Login] loginCliente erro:', err);
-      const message = err instanceof Error ? err.message : 'E-mail ou senha inválidos.';
-      Alert.alert('Erro', message);
-    } finally {
-      setIsLoading(false);
+      const db = SQLite.openDatabaseSync('meatpack.db');
+      const resultado: any = await db.getFirstAsync(
+        'SELECT * FROM clientes WHERE LOWER(email) = ? OR LOWER(apelido) = ?', 
+        [usuarioLimpo, usuarioLimpo]
+      );
+
+      setLoading(false);
+
+      if (resultado && resultado.senha.trim() === senhaLimpa) {
+        setUsername(''); setSenha('');
+        navigation.navigate('HomeScreen', { usuarioLogado: resultado });
+      } else {
+        exibirAlerta('Erro de Autenticação', 'Operador ou senha incorretos.');
+      }
+    } catch (error) {
+      setLoading(false);
+      exibirAlerta('Erro Técnico', 'Falha ao consultar o SQLite.');
     }
   };
 
-  const titleScale = titleAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.8, 1],
-  });
-
-  const titleOpacity = titleAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
   return (
-    <ImageBackground 
-      source={require('../../../assets/meat-background.jpg')}
-      style={styles.background}
-      blurRadius={2}
-    >
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
-      >
-        <View style={styles.logoContainer}>
-          <Animated.Text 
-            style={[
-              styles.title,
-              { 
-                opacity: titleOpacity,
-                transform: [{ scale: titleScale }] 
-              }
-            ]}
-          >
-            MEATPACK
-          </Animated.Text>
-          <Text style={styles.subtitle}>Controle de Estoque</Text>
+    <View style={styles.container}>
+      <View style={styles.loginCard}>
+        <Icon name="storefront" size={48} color={theme?.colors?.primary || '#7A1E1E'} style={styles.logoIcon} />
+        <Text style={styles.title}>System Meatpack</Text>
+        <Text style={styles.subtitle}>Controle de Logística & Estoque</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Usuário ou E-mail</Text>
+          <TextInput 
+            style={styles.input} 
+            placeholder="Digite seu usuário" 
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
         </View>
 
-        <View style={styles.formContainer}>
-          <AnimatedView from="bottom" delay={300}>
-            <TextInput
-              style={styles.input}
-              placeholder="E-mail"
-              placeholderTextColor={theme.colors.textLight}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              editable={!isLoading}
-            />
-          </AnimatedView>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Senha</Text>
+          <TextInput 
+            style={styles.input} 
+            placeholder="Digite sua senha" 
+            secureTextEntry
+            value={senha}
+            onChangeText={setSenha}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
 
-          <AnimatedView from="bottom" delay={500}>
-            <TextInput
-              style={styles.input}
-              placeholder="Senha"
-              placeholderTextColor={theme.colors.textLight}
-              value={senha}
-              onChangeText={setSenha}
-              secureTextEntry
-              textContentType="password"
-              editable={!isLoading}
-            />
-          </AnimatedView>
-
-          {isLoading ? (
-            <AnimatedView from="fade" delay={700}>
-              <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loading} />
-            </AnimatedView>
+        <TouchableOpacity style={styles.btnEntrar} onPress={handleLogin} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color="#FFF" />
           ) : (
             <>
-              <AnimatedView from="bottom" delay={700}>
-                <TouchableOpacity style={styles.buttonLogin} onPress={handleLogin}>
-                  <Text style={styles.buttonText}>Entrar</Text>
-                </TouchableOpacity>
-              </AnimatedView>
-
-              <AnimatedView from="bottom" delay={900}>
-                <TouchableOpacity
-                  style={styles.buttonSignup}
-                  onPress={() => navigation.navigate('Signup')}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.buttonSignupText}>Criar uma conta</Text>
-                </TouchableOpacity>
-              </AnimatedView>
+              <Icon name="login" size={20} color="#FFF" />
+              <Text style={styles.btnTexto}>Entrar no Sistema</Text>
             </>
           )}
-        </View>
-      </KeyboardAvoidingView>
-    </ImageBackground>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: 'cover',
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.m,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.xxl,
-  },
-  title: {
-    fontSize: 42,
-    fontWeight: '800',
-    color: theme.colors.surface,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 10,
-    letterSpacing: 2,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: theme.colors.surface,
-    marginTop: theme.spacing.s,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 5,
-  },
-  formContainer: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.xl,
-    ...theme.shadows.l,
-  },
-  input: {
-    width: '100%',
-    padding: theme.spacing.m,
-    borderWidth: 1,
-    borderColor: theme.colors.primaryLight,
-    borderRadius: theme.borderRadius.m,
-    marginBottom: theme.spacing.m,
-    backgroundColor: theme.colors.surface,
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  buttonLogin: {
-    width: '100%',
-    padding: theme.spacing.m,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.m,
-    alignItems: 'center',
-    marginBottom: theme.spacing.s,
-    ...theme.shadows.m,
-  },
-  buttonText: {
-    color: theme.colors.surface,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  buttonSignup: {
-    padding: theme.spacing.m,
-    alignItems: 'center',
-  },
-  buttonSignupText: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  loading: {
-    marginVertical: theme.spacing.m,
-  },
+  container: { flex: 1, backgroundColor: 'rgba(245, 245, 220, 0.9)', justifyContent: 'center', padding: 20 },
+  loginCard: { backgroundColor: '#FFF', padding: 24, borderRadius: 12, borderWidth: 1, borderColor: '#e3e3e3', width: '100%', maxWidth: 400, alignSelf: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  logoIcon: { alignSelf: 'center', marginBottom: 8 },
+  title: { fontSize: 24, fontWeight: 'bold', color: theme?.colors?.primary || '#7A1E1E', textAlign: 'center' },
+  subtitle: { fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 24 },
+  inputGroup: { marginBottom: 16 },
+  label: { fontSize: 14, fontWeight: '600', color: '#444', marginBottom: 6 },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 12, backgroundColor: '#f9f9f9', fontSize: 14 },
+  btnEntrar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme?.colors?.primary || '#7A1E1E', padding: 14, borderRadius: 6, gap: 8, marginTop: 8 },
+  btnTexto: { color: '#FFF', fontWeight: 'bold', fontSize: 16 }
 });
+

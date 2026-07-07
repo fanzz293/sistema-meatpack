@@ -1,328 +1,229 @@
 // src/screens/common/CadastrarProdutoScreen.tsx
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Alert,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ImageBackground,
-} from 'react-native';
+import { View, Text, TextInput, Alert, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { addProduto, getFornecedores, getProdutos } from '../../services/database';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { theme } from '../../styles/theme';
+import ScreenWrapper from '../../components/ScreenWrapper';
 import AnimatedView from '../../components/AnimatedView';
 import Icon from '@expo/vector-icons/MaterialIcons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CadastrarProduto'>;
 
-export default function CadastrarProdutoScreen({ navigation }: Props) {
-  const [formData, setFormData] = useState({
-    codigo: '',
-    descricao: '',
-    quantidade: '',
-    categoria: 'Bovina' as const,
-    precoUnitario: '',
-    fornecedor: '',
-  });
+const exibirAlerta = (titulo: string, mensagem: string, botoes?: { text: string; onPress?: () => void }[]) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${titulo}\n\n${mensagem}`);
+    const botaoOk = botoes?.find(b => b.onPress);
+    if (botaoOk && botaoOk.onPress) botaoOk.onPress();
+  } else {
+    Alert.alert(titulo, mensagem, botoes);
+  }
+};
+
+interface ItemFormProduto {
+  codigo: string;
+  descricao: string;
+  quantidade: string;
+  categoria: 'Bovina' | 'Suína' | 'Aves' | 'Outros';
+  precoUnitario: string;
+  fornecedor: string;
+}
+
+const CadastrarProdutoScreen: React.FC<Props> = ({ navigation }) => {
+  const [produtosForm, setProdutosForm] = useState<ItemFormProduto[]>([
+    { codigo: '', descricao: '', quantidade: '', categoria: 'Bovina', precoUnitario: '', fornecedor: '' }
+  ]);
   const [fornecedores, setFornecedores] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showFornecedorSuggestions, setShowFornecedorSuggestions] = useState(false);
-  const [fornecedorInputFocused, setFornecedorInputFocused] = useState(false);
 
-  useEffect(() => {
-    const carregarFornecedores = async () => {
-      const fornecedoresLista = await getFornecedores();
-      setFornecedores(fornecedoresLista);
-    };
-    carregarFornecedores();
-  }, []);
-
-  const handleChange = (field: keyof typeof formData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const carregarFornecedores = async () => {
+    try { const lista = await getFornecedores(); setFornecedores(lista); } catch (e) {}
   };
 
-  const selecionarFornecedor = (fornecedorSelecionado: string) => {
-    setFormData(prev => ({ ...prev, fornecedor: fornecedorSelecionado }));
-    setShowFornecedorSuggestions(false);
+  useEffect(() => { carregarFornecedores(); }, []);
+
+  const handleRowChange = (index: number, field: keyof ItemFormProduto, value: string) => {
+    const novosProps = [...produtosForm];
+    novosProps[index] = { ...novosProps[index], [field]: value };
+    setProdutosForm(novosProps);
+  };
+
+  const handleAdicionarLinhaForm = () => {
+    setProdutosForm([...produtosForm, { codigo: '', descricao: '', quantidade: '', categoria: 'Bovina', precoUnitario: '', fornecedor: '' }]);
+  };
+
+  const handleRemoverLinhaForm = (index: number) => {
+    if (produtosForm.length === 1) return;
+    setProdutosForm(produtosForm.filter((_, i) => i !== index));
   };
 
   const handleCadastrar = async () => {
-    if (!formData.descricao || !formData.quantidade || !formData.precoUnitario || !formData.fornecedor) {
-      Alert.alert('Erro', 'Preencha todos os campos obrigatórios.');
-      return;
+    if (isLoading) return;
+
+    for (let i = 0; i < produtosForm.length; i++) {
+      const item = produtosForm[i];
+      if (!item.descricao.trim() || !item.quantidade.trim() || !item.precoUnitario.trim() || !item.fornecedor.trim()) {
+        exibirAlerta('Campos Obrigatórios', `Por favor, preencha todos os campos do produto na linha #${i + 1}.`);
+        return;
+      }
     }
 
     setIsLoading(true);
-    
+
     try {
-      // Gerar código automático se não foi informado
-      let codigo = formData.codigo ? parseInt(formData.codigo) : 0;
-      if (codigo === 0) {
-        // Buscar o maior código existente e incrementar
-        const produtos = await getProdutos();
-        const maxCodigo = produtos.reduce((max, p) => Math.max(max, p.codigo), 0);
-        codigo = maxCodigo + 1;
+      const todosProdutosExistentes = await getProdutos();
+      let ultimoCodigoMax = todosProdutosExistentes.reduce((max, p) => Math.max(max, p.codigo || 0), 0);
+
+      for (const item of produtosForm) {
+        let codigoFinal = item.codigo ? parseInt(item.codigo, 10) : 0;
+        if (codigoFinal === 0) {
+          ultimoCodigoMax += 1;
+          codigoFinal = ultimoCodigoMax;
+        }
+
+        await addProduto({
+          codigo: codigoFinal,
+          descricao: item.descricao.trim(),
+          quantidade: parseFloat(item.quantidade),
+          categoria: item.categoria,
+          precoUnitario: parseFloat(item.precoUnitario),
+          fornecedor: item.fornecedor.trim(),
+        });
       }
 
-      const produto = {
-        codigo: codigo,
-        descricao: formData.descricao,
-        quantidade: parseFloat(formData.quantidade),
-        categoria: formData.categoria,
-        precoUnitario: parseFloat(formData.precoUnitario),
-        fornecedor: formData.fornecedor,
-      };
+      // CORRIGIDO: Redireciona de volta para a consulta de estoque ao finalizar
+      exibirAlerta('Sucesso', 'Lote de produtos cadastrado com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            setProdutosForm([{ codigo: '', descricao: '', quantidade: '', categoria: 'Bovina', precoUnitario: '', fornecedor: '' }]);
+            navigation.navigate('ConsultarEstoque', { infoMessage: 'Produtos adicionados com sucesso!' });
+          }
+        }
+      ]);
 
-      await addProduto(produto);
-      Alert.alert('Sucesso', `Produto cadastrado com sucesso! Código: ${codigo}`);
-      setFormData({
-        codigo: '',
-        descricao: '',
-        quantidade: '',
-        categoria: 'Bovina',
-        precoUnitario: '',
-        fornecedor: '',
-      });
     } catch (error: any) {
-      console.error('Erro ao cadastrar produto:', error);
-      Alert.alert('Erro', error.message || 'Não foi possível cadastrar o produto.');
+      exibirAlerta('Aviso do Sistema', error?.message || 'Erro ao processar lote de produtos.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formFields = [
-    { field: 'codigo', label: 'Código (opcional)', placeholder: 'Deixe em branco para gerar automaticamente', keyboardType: 'numeric' as const },
-    { field: 'descricao', label: 'Descrição', placeholder: 'Nome do produto' },
-    { field: 'quantidade', label: 'Quantidade (kg)', placeholder: 'Quantidade em estoque', keyboardType: 'numeric' as const },
-    { field: 'precoUnitario', label: 'Preço Unitário (R$)', placeholder: 'Preço por kg', keyboardType: 'numeric' as const },
-  ];
-
   return (
-    <ImageBackground 
-      source={require('../../../assets/wood-background.jpg')}
-      style={styles.background}
-      blurRadius={1}
-    >
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        <AnimatedView from="top">
-          <Text style={styles.title}>Cadastrar Produto</Text>
+    <ScreenWrapper>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="always">
+        <AnimatedView from="top" duration={500}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.title}>Cadastrar Produtos</Text>
+            <Text style={styles.pageDescription}>Preencha os itens abaixo para dar entrada em novos lotes de mercadoria.</Text>
+          </View>
         </AnimatedView>
 
-        <AnimatedView from="bottom" delay={200}>
-          <View style={styles.formContainer}>
-            {formFields.map((item, index) => (
-              <View key={item.field} style={styles.inputContainer}>
-                <Text style={styles.label}>{item.label}</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder={item.placeholder}
-                  placeholderTextColor={theme.colors.textLight}
-                  value={formData[item.field as keyof typeof formData]}
-                  onChangeText={(text) => handleChange(item.field as keyof typeof formData, text)}
-                  keyboardType={item.keyboardType}
-                />
+        <AnimatedView from="bottom" delay={100} duration={600} style={{ flex: 1 }}>
+          <View style={styles.formPanelContainer}>
+            {produtosForm.map((item, index) => (
+              <View key={index} style={styles.itemLoteCard}>
+                <View style={styles.rowCardHeader}>
+                  <Text style={styles.itemTitle}>Item #{index + 1}</Text>
+                  {produtosForm.length > 1 && (
+                    <TouchableOpacity onPress={() => handleRemoverLinhaForm(index)}>
+                      <Icon name="delete" size={20} color="#d32f2f" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={styles.formRow}>
+                  <View style={[styles.inputContainer, styles.flex4]}>
+                    <Text style={styles.label}>Código (Opcional)</Text>
+                    <TextInput style={styles.input} placeholder="Auto" value={item.codigo} onChangeText={(t) => handleRowChange(index, 'codigo', t)} keyboardType="numeric" />
+                  </View>
+
+                  <View style={[styles.inputContainer, styles.flex6]}>
+                    <Text style={styles.label}>Categoria</Text>
+                    <View style={styles.pickerContainer}>
+                      <Picker selectedValue={item.categoria} onValueChange={(v) => handleRowChange(index, 'categoria', v as any)} style={styles.picker}>
+                        <Picker.Item label="Bovina" value="Bovina" />
+                        <Picker.Item label="Suína" value="Suína" />
+                        <Picker.Item label="Aves" value="Aves" />
+                        <Picker.Item label="Outros" value="Outros" />
+                      </Picker>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Descrição do Produto</Text>
+                  <TextInput style={styles.input} placeholder="Ex: Alcatra Bov. Resfriada" value={item.descricao} onChangeText={(t) => handleRowChange(index, 'descricao', t)} />
+                </View>
+
+                <View style={styles.formRow}>
+                  <View style={[styles.inputContainer, styles.flex1]}>
+                    <Text style={styles.label}>Qtd Inicial (kg)</Text>
+                    <TextInput style={styles.input} placeholder="0.00" value={item.quantidade} onChangeText={(t) => handleRowChange(index, 'quantidade', t)} keyboardType="numeric" />
+                  </View>
+                  <View style={[styles.inputContainer, styles.flex1]}>
+                    <Text style={styles.label}>Preço por kg (R$)</Text>
+                    <TextInput style={styles.input} placeholder="0.00" value={item.precoUnitario} onChangeText={(t) => handleRowChange(index, 'precoUnitario', t)} keyboardType="numeric" />
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Fornecedor</Text>
+                  <TextInput style={styles.input} placeholder="Nome do Fornecedor" value={item.fornecedor} onChangeText={(t) => handleRowChange(index, 'fornecedor', t)} />
+                </View>
               </View>
             ))}
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Categoria</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={formData.categoria}
-                  onValueChange={(value) => handleChange('categoria', value as string)}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Bovina" value="Bovina" />
-                  <Picker.Item label="Suína" value="Suína" />
-                  <Picker.Item label="Aves" value="Aves" />
-                  <Picker.Item label="Outros" value="Outros" />
-                </Picker>
-              </View>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Fornecedor</Text>
-              <View style={styles.pickerContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Digite o nome do fornecedor"
-                  placeholderTextColor={theme.colors.textLight}
-                  value={formData.fornecedor}
-                  onChangeText={(text) => handleChange('fornecedor', text)}
-                  onFocus={() => {
-                    setShowFornecedorSuggestions(true);
-                    setFornecedorInputFocused(true);
-                  }}
-                  onBlur={() => {
-                    setFornecedorInputFocused(false);
-                    setTimeout(() => setShowFornecedorSuggestions(false), 300);
-                  }}
-                />
-                {showFornecedorSuggestions && fornecedorInputFocused && (
-                  <View style={styles.suggestionsContainer}>
-                    <ScrollView style={styles.suggestions}>
-                      {fornecedores
-                        .filter(f => f.toLowerCase().includes(formData.fornecedor.toLowerCase()))
-                        .map((f, index) => (
-                          <TouchableOpacity 
-                            key={index} 
-                            onPress={() => selecionarFornecedor(f)}
-                            style={styles.suggestionItemContainer}
-                          >
-                            <Text style={styles.suggestionItem}>{f}</Text>
-                          </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            <TouchableOpacity 
-              style={[styles.cadastrarButton, isLoading && styles.cadastrarButtonDisabled]}
-              onPress={handleCadastrar}
-              disabled={isLoading}
-            >
-              <Icon name="add-circle" size={24} color="#FFF" />
-              <Text style={styles.cadastrarButtonText}>
-                {isLoading ? 'Cadastrando...' : 'Cadastrar Produto'}
-              </Text>
+            <TouchableOpacity style={styles.btnIncluirLinha} onPress={handleAdicionarLinhaForm}>
+              <Icon name="add" size={20} color={theme.colors.primary} />
+              <Text style={styles.btnIncluirLinhaTexto}>Incluir outro produto no lote</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => navigation.navigate('HomeScreen')}
-            >
-              <Icon name="arrow-back" size={20} color={theme.colors.primary} />
-              <Text style={styles.backButtonText}>Voltar ao Início</Text>
-            </TouchableOpacity>
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={[styles.cadastrarButton, isLoading && styles.disabledBtn]} onPress={handleCadastrar} disabled={isLoading}>
+                <Icon name="save" size={22} color="#FFF" />
+                <Text style={styles.cadastrarButtonText}>{isLoading ? 'Salvando Lote...' : 'Gravar Todos os Produtos'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('HomeScreen')}>
+                <Icon name="arrow-back" size={18} color={theme.colors.primary} />
+                <Text style={styles.backButtonText}>Voltar ao Menu</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </AnimatedView>
       </ScrollView>
-    </ImageBackground>
+    </ScreenWrapper>
   );
-}
+};
+
+export default CadastrarProdutoScreen;
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: 'cover',
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: theme.spacing.m,
-    paddingBottom: theme.spacing.xxl,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    textAlign: 'center',
-    marginBottom: theme.spacing.xl,
-    textShadowColor: 'rgba(255, 255, 255, 0.75)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  formContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.xl,
-    ...theme.shadows.l,
-  },
-  inputContainer: {
-    marginBottom: theme.spacing.m,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
-    marginLeft: theme.spacing.xs,
-  },
-  input: {
-    padding: theme.spacing.m,
-    borderWidth: 1,
-    borderColor: theme.colors.primaryLight,
-    borderRadius: theme.borderRadius.m,
-    backgroundColor: theme.colors.surface,
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: theme.colors.primaryLight,
-    borderRadius: theme.borderRadius.m,
-    backgroundColor: theme.colors.surface,
-    overflow: 'hidden',
-    position: 'relative',
-    zIndex: 1,
-  },
-  picker: {
-    height: 50,
-  },
-  suggestionsContainer: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    zIndex: 2,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.primaryLight,
-    borderRadius: theme.borderRadius.m,
-    maxHeight: 150,
-    ...theme.shadows.m,
-  },
-  suggestions: {
-    maxHeight: 150,
-  },
-  suggestionItemContainer: {
-    padding: theme.spacing.m,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  suggestionItem: {
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  cadastrarButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.l,
-    borderRadius: theme.borderRadius.m,
-    marginTop: theme.spacing.m,
-    marginBottom: theme.spacing.m,
-    ...theme.shadows.m,
-  },
-  cadastrarButtonDisabled: {
-    opacity: 0.7,
-  },
-  cadastrarButtonText: {
-    color: theme.colors.surface,
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: theme.spacing.s,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.m,
-  },
-  backButtonText: {
-    color: theme.colors.primary,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: theme.spacing.s,
-  },
+  container: { flex: 1, backgroundColor: 'rgba(245, 245, 220, 0.9)' },
+  contentContainer: { padding: theme.spacing.m, paddingBottom: 60, flexGrow: 1 },
+  headerContainer: { alignItems: 'center', marginBottom: theme.spacing.l, maxWidth: 700, alignSelf: 'center' },
+  title: { fontSize: 26, fontWeight: 'bold', color: theme.colors.primary, textAlign: 'center', marginBottom: theme.spacing.xs },
+  pageDescription: { fontSize: 14, color: theme.colors.textLight, textAlign: 'center', fontStyle: 'italic' },
+  formPanelContainer: { backgroundColor: theme.colors.surface, padding: 20, borderRadius: theme.borderRadius.m, width: '100%', maxWidth: 800, alignSelf: 'center', ...theme.shadows.s, borderWidth: 1, borderColor: '#dcdcdc' },
+  itemLoteCard: { backgroundColor: '#f9f9f9', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#e9e9e9', marginBottom: 20 },
+  rowCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 6 },
+  itemTitle: { fontSize: 14, fontWeight: 'bold', color: '#555' },
+  formRow: { flexDirection: Platform.OS === 'web' ? 'row' : 'column', gap: 16 },
+  flex1: { flex: 1 }, flex4: { flex: Platform.OS === 'web' ? 4 : undefined }, flex6: { flex: Platform.OS === 'web' ? 6 : undefined },
+  inputContainer: { marginBottom: 12 },
+  label: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 4 },
+  input: { borderWidth: 1, borderColor: theme.colors.primaryLight, borderRadius: 6, padding: 10, fontSize: 15, backgroundColor: '#FFF', height: 44, color: '#000' },
+  pickerContainer: { borderWidth: 1, borderColor: theme.colors.primaryLight, borderRadius: 6, overflow: 'hidden', backgroundColor: '#FFF', height: 44, justifyContent: 'center' },
+  picker: { height: 44 },
+  btnIncluirLinha: { flexDirection: 'row', alignItems: 'center', padding: 12, borderWidth: 1, borderColor: theme.colors.primary, borderRadius: 6, borderStyle: 'dashed', marginBottom: 25, alignSelf: 'flex-start' },
+  btnIncluirLinhaTexto: { color: theme.colors.primary, fontWeight: 'bold', marginLeft: 6, fontSize: 14 },
+  actionRow: { flexDirection: Platform.OS === 'web' ? 'row-reverse' : 'column', justifyContent: 'space-between', alignItems: 'center', gap: 12, width: '100%' },
+  cadastrarButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#8B0000', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 8, width: Platform.OS === 'web' ? 'auto' : '100%', height: 50 },
+  cadastrarButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginLeft: 6 },
+  backButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, width: Platform.OS === 'web' ? 'auto' : '100%' },
+  backButtonText: { color: '#8B0000', fontWeight: '600', marginLeft: 4 },
+  disabledBtn: { opacity: 0.6 }
 });

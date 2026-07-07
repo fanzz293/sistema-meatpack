@@ -1,208 +1,155 @@
 // src/screens/common/HomeScreen.tsx
-import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ImageBackground, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useAuth } from '../../context/AuthContext';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { theme } from '../../styles/theme';
-import AnimatedView from '../../components/AnimatedView';
-import Icon from '@expo/vector-icons/MaterialIcons'; 
+import ScreenWrapper from '../../components/ScreenWrapper';
+
+// @ts-ignore
+import Icon from '@expo/vector-icons/MaterialIcons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'HomeScreen'>;
 
-export default function HomeScreen({ navigation }: Props) {
-  const { logout, user } = useAuth();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+export default function HomeScreen({ navigation, route }: Props) {
+  const usuario = route.params?.usuarioLogado;
+  const nomeExibicao = usuario ? usuario.nomeCompleto || usuario.apelido : 'Operador';
 
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
-
-  const handleLogout = () => {
-    logout();
-  };
-
-  const menuItems = [
-    {
-      title: 'Consultar Estoque',
-      icon: 'inventory-2', // Ícone válido
-      screen: 'ConsultarEstoque',
-      color: '#8B0000',
-    },
-    {
-      title: 'Adicionar Pedido',
-      icon: 'add-shopping-cart', // Ícone válido
-      screen: 'AdicionarPedido',
-      color: '#A52A2A',
-    },
-    {
-      title: 'Cadastrar Produto',
-      icon: 'add-box', // Ícone válido
-      screen: 'CadastrarProduto',
-      color: '#D2691E',
-    },
-    {
-      title: 'Acompanhar Pedidos',
-      icon: 'list-alt', // Ícone válido
-      screen: 'AcompanharPedidos',
-      color: '#CD853F',
-      params: { refresh: false },
-    },
-    {
-      title: 'Registrar Saída',
-      icon: 'remove-circle-outline', // Ícone válido
-      screen: 'RegistrarSaida',
-      color: '#8B4513',
-    },
-  ];
+  const fundoMadeira = require('../../../assets/wood-background.jpg'); 
 
   return (
-    <ImageBackground 
-      source={require('../../../assets/meat-background.jpg')}
-      style={styles.background}
-      blurRadius={3}
-    >
-      <View style={styles.container}>
-        <AnimatedView from="top" delay={200}>
-          <View style={styles.header}>
-            <View style={styles.userInfo}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {user?.nome?.charAt(0).toUpperCase()}
-                </Text>
+    <ScreenWrapper>
+      <ImageBackground source={fundoMadeira} style={styles.background} resizeMode="cover">
+        <View style={styles.overlayContainer}>
+          
+          <View style={styles.contentLimiter}>
+            {/* HEADER DE BOAS-VINDAS */}
+            <View style={styles.welcomeHeader}>
+              <View>
+                <Text style={styles.welcomeText}>Olá, {nomeExibicao}!</Text>
+                <Text style={styles.subWelcome}>Painel Logístico Meatpack</Text>
               </View>
-              <Text style={styles.greeting}>Olá, {user?.nome}</Text>
+              <Icon name="account-circle" size={40} color={theme?.colors?.primary || '#7A1E1E'} />
             </View>
-            <Text style={styles.title}>MEATPACK</Text>
-            <Text style={styles.subtitle}>Gestão de Estoque</Text>
-          </View>
-        </AnimatedView>
 
-        <View style={styles.menuContainer}>
-          {menuItems.map((item, index) => (
-            <AnimatedView 
-              key={item.title} 
-              from="left" 
-              delay={400 + index * 150}
-            >
-              <TouchableOpacity
-                style={[styles.menuItem, { backgroundColor: item.color }]}
-                onPress={() => navigation.navigate(item.screen as any, item.params || {})}
+            {/* GRID OPERACIONAL REORGANIZADO */}
+            <View style={styles.menuGrid}>
+              
+              {/* 1. CONSULTAR PRODUTO */}
+              <TouchableOpacity 
+                style={styles.menuItem} 
+                onPress={() => navigation.navigate('ConsultarEstoque')}
               >
-                <Icon name={item.icon} size={28} color="#FFF" style={styles.menuIcon} />
-                <Text style={styles.menuText}>{item.title}</Text>
+                <Icon name="inventory" size={26} color={theme?.colors?.primary || '#7A1E1E'} style={styles.iconSpacing} />
+                <Text style={styles.menuText}>Consultar Produto</Text>
               </TouchableOpacity>
-            </AnimatedView>
-          ))}
-        </View>
 
-        <AnimatedView from="bottom" delay={1000}>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <Icon name="exit-to-app" size={20} color="#FFF" />
-            <Text style={styles.logoutText}>Sair</Text>
-          </TouchableOpacity>
-        </AnimatedView>
-      </View>
-    </ImageBackground>
+              {/* 2. CADASTRAR PRODUTO */}
+              <TouchableOpacity 
+                style={styles.menuItem} 
+                onPress={() => navigation.navigate('CadastrarProduto')}
+              >
+                <Icon name="add-box" size={26} color={theme?.colors?.primary || '#7A1E1E'} style={styles.iconSpacing} />
+                <Text style={styles.menuText}>Cadastrar Produto</Text>
+              </TouchableOpacity>
+
+              {/* 3. ADICIONAR PEDIDO */}
+              <TouchableOpacity 
+                style={styles.menuItem} 
+                onPress={() => navigation.navigate('AdicionarPedido')}
+              >
+                <Icon name="add-shopping-cart" size={26} color={theme?.colors?.primary || '#7A1E1E'} style={styles.iconSpacing} />
+                <Text style={styles.menuText}>Adicionar Pedido</Text>
+              </TouchableOpacity>
+
+              {/* 4. ACOMPANHAR PEDIDOS */}
+              <TouchableOpacity 
+                style={styles.menuItem} 
+                onPress={() => navigation.navigate('AcompanharPedidos')}
+              >
+                <Icon name="assignment" size={26} color={theme?.colors?.primary || '#7A1E1E'} style={styles.iconSpacing} />
+                <Text style={styles.menuText}>Acompanhar Pedidos</Text>
+              </TouchableOpacity>
+
+              {/* 5. REGISTRAR SAÍDA */}
+              <TouchableOpacity 
+                style={styles.menuItem} 
+                onPress={() => navigation.navigate('RegistrarSaida')}
+              >
+                <Icon name="local-shipping" size={26} color={theme?.colors?.primary || '#7A1E1E'} style={styles.iconSpacing} />
+                <Text style={styles.menuText}>Registrar Saída</Text>
+              </TouchableOpacity>
+
+              {/* 6. CONFIGURAÇÕES / SENHA */}
+              <TouchableOpacity 
+                style={[styles.menuItem, styles.configItem]} 
+                onPress={() => navigation.navigate('Configuracoes', { usuarioAtual: usuario })}
+              >
+                <Icon name="settings" size={26} color="#555" style={styles.iconSpacing} />
+                <Text style={styles.menuText}>Configurações de contas</Text>
+              </TouchableOpacity>
+
+            </View>
+
+            {/* BOTÃO DE LOGOUT */}
+            <TouchableOpacity 
+              style={styles.btnLogout} 
+              onPress={() => navigation.replace('Login')}
+            >
+              <Icon name="logout" size={18} color="#FFF" />
+              <Text style={styles.btnLogoutTexto}>Desconectar do Sistema</Text>
+            </TouchableOpacity>
+          </View>
+
+        </View>
+      </ImageBackground>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: 'cover',
+  background: { flex: 1, width: '100%', height: '100%' },
+  overlayContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)', padding: theme?.spacing?.m || 16, justifyContent: 'center' },
+  contentLimiter: { width: '100%', maxWidth: Platform.OS === 'web' ? 550 : '100%', alignSelf: 'center' },
+  welcomeHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+    padding: 16, 
+    borderRadius: 8, 
+    marginBottom: 16, 
+    borderWidth: 1, 
+    borderColor: '#e3e3e3',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 4
   },
-  container: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.m,
+  welcomeText: { fontSize: 20, fontWeight: 'bold', color: theme?.colors?.primary || '#7A1E1E' },
+  subWelcome: { fontSize: 13, color: '#666', fontStyle: 'italic' },
+  menuGrid: { flexDirection: 'column', gap: 10 },
+  menuItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+    padding: 16, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: '#e0e0e0',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.xxl,
+  configItem: { backgroundColor: 'rgba(242, 242, 242, 0.98)', borderColor: '#ccc' },
+  iconSpacing: { marginRight: 14 },
+  menuText: { fontSize: 16, fontWeight: '600', color: theme?.colors?.text || '#333' },
+  btnLogout: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: '#c62828', 
+    padding: 12, 
+    borderRadius: 6, 
+    marginTop: 20, 
+    gap: 8,
+    alignSelf: 'center',
+    paddingHorizontal: 24
   },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.m,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: theme.spacing.s,
-  },
-  avatarText: {
-    color: theme.colors.surface,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  greeting: {
-    color: theme.colors.surface,
-    fontSize: 16,
-  },
-  title: {
-    fontSize: 42,
-    fontWeight: '800',
-    color: theme.colors.surface,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 10,
-    letterSpacing: 2,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: theme.colors.surface,
-    marginTop: theme.spacing.s,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  menuContainer: {
-    width: '100%',
-    maxWidth: 500,
-    marginBottom: theme.spacing.xl,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: theme.spacing.l,
-    borderRadius: theme.borderRadius.l,
-    marginBottom: theme.spacing.m,
-    ...theme.shadows.m,
-  },
-  menuIcon: {
-    marginRight: theme.spacing.m,
-  },
-  menuText: {
-    color: theme.colors.surface,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: theme.spacing.m,
-    borderRadius: theme.borderRadius.m,
-    ...theme.shadows.s,
-  },
-  logoutText: {
-    color: theme.colors.surface,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: theme.spacing.s,
-  },
+  btnLogoutTexto: { color: '#FFF', fontWeight: 'bold', fontSize: 14 }
 });

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "sistema-meatpack",
-    "slug": "sistema-meatpack",
+    "name": "system-meatpack",
+    "slug": "system-meatpack",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -26,16 +26,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sqlite",
-      [
-        "expo-font",
-        {
-          "fonts": [
-            "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf"
-          ]
-        }
-      ]
+      "@react-native-community/datetimepicker",
+      "expo-sqlite"
     ]
   }
 }
-
