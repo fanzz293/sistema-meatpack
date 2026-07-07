@@ -1,8 +1,8 @@
 # Sistema MeatPack - Gestão de Estoque para Açougue
 
-![React Native](https://img.shields.io/badge/React_Native-0.72.0-blue.svg)
+![React Native](https://img.shields.io/badge/React_Native-0.74.0-blue.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg)
-![Expo](https://img.shields.io/badge/Expo-49.0-000020.svg)
+![Expo](https://img.shields.io/badge/Expo-54.0-000020.svg)
 
 Projeto de extensão desenvolvido durante as aulas da disciplina Programação para Dispositivos Móveis em Aplicativos Android, do curso de Sistemas de Informação da Faculdade Estácio, trazendo solução para uma situação comum no mundo real das empresas: a necessidade de automação da gestão de grandes volumes de mercadorias nas empresas.  
 
