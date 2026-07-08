@@ -21,37 +21,49 @@ import AnimatedView from '../../components/AnimatedView';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import Icon from '@expo/vector-icons/MaterialIcons';
 
+// Tipagem das propriedades de navegação vinculadas à rota atual
 type Props = NativeStackScreenProps<RootStackParamList, 'ConsultarEstoque'>;
+
+// Tipagem estrita para mapear quais chaves do objeto 'Produto' (ou calculadas) aceitam ordenação
 type AtributoOrdenacao = 'codigo' | 'descricao' | 'categoria' | 'valorTotal';
 type DirecaoOrdenacao = 'asc' | 'desc';
 
+/**
+ * Utilitário de formatação monetária padrão (pt-BR).
+ * Garante uma renderização defensiva caso o valor seja nulo, indefinido ou inválido (NaN).
+ */
 const formatCurrency = (value: number | undefined): string => {
   return (value === undefined || value === null || isNaN(value)) ? '0,00' : value.toFixed(2);
 };
 
 const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
+  // --- ESTADOS DE CONTROLE DE DADOS (INVENTÁRIO) ---
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false); // Controla o estado do componente Pull-to-Refresh
+  const [loading, setLoading] = useState(false);       // Controla o indicador de carga inicial
+  const [searchFocused, setSearchFocused] = useState(false); // Injeta efeitos visuais de foco no input de busca
+  const [toastMessage, setToastMessage] = useState<string | null>(null); // Gerencia mensagens temporárias no topo
 
+  // --- ESTADOS DE CONTROLE DE ORDENAÇÃO ---
   const [ordenarPor, setOrdenarPor] = useState<AtributoOrdenacao>('descricao');
   const [direcao, setDirecao] = useState<DirecaoOrdenacao>('asc');
-  const [animationKey, setAnimationKey] = useState(0);
+  const [animationKey, setAnimationKey] = useState(0); // Força o re-disparo de micro-animações nas linhas da FlatList
 
-  // CONTROLES DOS MODAIS CUSTOMIZADOS
+  // --- ESTADOS DE CONTROLE DE FLUXOS DOS MODAIS CUSTOMIZADOS ---
   const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null);
   const [modalOpcoesVisivel, setModalOpcoesVisivel] = useState(false);
   const [modalConfirmacaoVisivel, setModalConfirmacaoVisivel] = useState(false);
   const [modalEdicaoVisivel, setModalEdicaoVisivel] = useState(false);
 
-  // ESTADOS FORMULÁRIO DE EDIÇÃO INLINE
+  // --- ESTADOS CONTROLADOS DO FORMULÁRIO DE EDIÇÃO INLINE (DENTRO DO MODAL) ---
   const [editCodigo, setEditCodigo] = useState('');
   const [editDescricao, setEditDescricao] = useState('');
   const [editFornecedor, setEditFornecedor] = useState('');
 
+  /**
+   * Consulta a listagem global de produtos cadastrados.
+   */
   const carregarProdutos = async () => {
     try {
       const lista = await getProdutos();
@@ -61,21 +73,27 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
+  // 1. CICLO DE VIDA DE FOCO DA TELA
+  // Executa toda vez que a tela ganha foco visual na navegação, limpando e re-renderizando a lista
   useFocusEffect(
     useCallback(() => {
       carregarProdutos();
-      setAnimationKey(prev => prev + 1);
+      setAnimationKey(prev => prev + 1); // Altera a chave para resetar os nós das linhas e re-animá-las
     }, [])
   );
 
+  // 2. INTERCEPTAÇÃO DE MENSAGENS INTERNAS (TOAST INTER-TELAS)
   useEffect(() => {
     const params = route.params as any;
     if (params?.infoMessage) {
       exibirToast(params.infoMessage);
-      navigation.setParams({ infoMessage: undefined } as any);
+      navigation.setParams({ infoMessage: undefined } as any); // Consome/Limpa o parâmetro da rota
     }
   }, [route.params]);
 
+  /**
+   * Exibe um banner informativo temporário (Toast) no topo da tela com temporizador automático.
+   */
   const exibirToast = (mensagem: string) => {
     setToastMessage(mensagem);
     setTimeout(() => {
@@ -83,6 +101,9 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
     }, 4000);
   };
 
+  /**
+   * Executa a atualização manual do inventário (Ação de arrastar para baixo na FlatList).
+   */
   const onRefresh = async () => {
     setRefreshing(true);
     await carregarProdutos();
@@ -90,6 +111,10 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
     setRefreshing(false);
   };
 
+  /**
+   * Orquestra a busca reativa por descrição ou código.
+   * Chame o serviço local correspondente filtrando conforme a string de consulta.
+   */
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     if (query) {
@@ -100,23 +125,33 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
+  /**
+   * Aciona o primeiro modal (Menu de Opções) ao clicar em uma linha da tabela de estoque.
+   */
   const handleAbreOpcoesItem = (produto: Produto) => {
     setProdutoSelecionado(produto);
     setModalOpcoesVisivel(true);
   };
 
-  // Abre o Modal de Edição populando os campos controlados
+  /**
+   * Transiciona o estado do sistema fechando as opções e abrindo a janela de modificação inline.
+   * Popula os estados temporários com os dados originais do produto selecionado.
+   */
   const handleAcaoEditar = () => {
     setModalOpcoesVisivel(false);
     if (produtoSelecionado) {
       setEditCodigo(produtoSelecionado.codigo.toString());
       setEditDescricao(produtoSelecionado.descricao);
       setEditFornecedor(produtoSelecionado.fornecedor || '');
+      // Pequeno delay assíncrono para permitir que o modal anterior seja desmontado sem travar a UI thread
       setTimeout(() => setModalEdicaoVisivel(true), 150);
     }
   };
 
-  // Executa o update persistindo as alterações no SQLite / WebStorage
+  /**
+   * Valida as entradas textuais do formulário inline e persiste a modificação no banco de dados.
+   * Alimenta a query enviando a PK original de busca do item antigo caso o código em si seja alterado.
+   */
   const handleSalvarEdicao = async () => {
     if (!produtoSelecionado) return;
     
@@ -134,25 +169,30 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
         fornecedor: editFornecedor.trim(),
       };
 
-      // Dispara a query passando o objeto e a chave de busca original secundária
       await updateProduto(produtoAtualizado, produtoSelecionado.codigo);
       
       setModalEdicaoVisivel(false);
-      exibirToast('produto updated com sucesso!'); // Feedback visual solicitado
-      carregarProdutos(); // Hot-reload da FlatList
+      exibirToast('produto atualizado com sucesso!'); // Injeta o feedback visual solicitado pelo negócio
+      carregarProdutos(); // Dá um hot-refresh imediato na FlatList
     } catch (error) {
       console.error(error);
       exibirToast('Erro: Não foi possível atualizar o produto.');
     } finally {
-      setProdutoSelecionado(null);
+      setProdutoSelecionado(null); // Desvincula a linha ativa de memória
     }
   };
 
+  /**
+   * Transiciona do menu de opções para a caixa de diálogo de confirmação de exclusão.
+   */
   const handleAcaoAbrirConfirmacao = () => {
     setModalOpcoesVisivel(false);
     setTimeout(() => setModalConfirmacaoVisivel(true), 150);
   };
 
+  /**
+   * Executa a query de deleção física do registro no SQLite ou LocalStorage.
+   */
   const executarExclusao = async () => {
     if (!produtoSelecionado) return;
     setModalConfirmacaoVisivel(false);
@@ -168,25 +208,36 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
+  /**
+   * Algoritmo de processamento e ordenação de vetores em memória.
+   * Classifica de forma estável a matriz de produtos com base nas diretrizes de atributos e direções.
+   */
   const obterProdutosProcessados = () => {
     let resultado = [...produtos];
     resultado.sort((a, b) => {
       let valorA: any = a[ordenarPor as keyof Produto];
       let valorB: any = b[ordenarPor as keyof Produto];
 
+      // Caso especial: Atributo virtual derivado da multiplicação de peso por custo unitário
       if (ordenarPor === 'valorTotal') {
         valorA = a.quantidade * a.precoUnitario;
         valorB = b.quantidade * b.precoUnitario;
       }
 
+      // Ordenação para campos alfanuméricos / strings (Garante compatibilidade com acentuação via localeCompare)
       if (typeof valorA === 'string' && typeof valorB === 'string') {
         return direcao === 'asc' ? valorA.localeCompare(valorB) : valorB.localeCompare(valorA);
       }
+      // Ordenação matemática para valores numéricos puros (Peso, Preço, ID)
       return direcao === 'asc' ? valorA - valorB : valorB - valorA;
     });
     return resultado;
   };
 
+  /**
+   * Função de renderização atômica para os itens da lista.
+   * Conecta cada linha a um bloco animado individual com atraso incremental.
+   */
   const renderItem = ({ item, index }: { item: Produto; index: number }) => (
     <AnimatedView key={`${animationKey}-${item.codigo}`} from="right" delay={index * 30} duration={350}>
       <TouchableOpacity style={styles.tableRow} onPress={() => handleAbreOpcoesItem(item)} activeOpacity={0.7}>
@@ -202,6 +253,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <ScreenWrapper>
+      {/* COMPONENTE TOAST DE NOTIFICAÇÃO SUPERIOR SYSTEM */}
       {toastMessage && (
         <AnimatedView from="top" style={styles.toastBanner}>
           <Icon name="check-circle" size={20} color="#FFF" />
@@ -212,6 +264,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
       <View style={styles.container}>
         <View style={styles.panelCardContainer}>
           
+          {/* SEÇÃO DE ENTRADA DO CABEÇALHO */}
           <AnimatedView key={`header-${animationKey}`} from="top" duration={400}>
             <View style={styles.headerContainer}>
               <Text style={styles.title}>Consultar Estoque</Text>
@@ -221,6 +274,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           </AnimatedView>
 
+          {/* BOTÃO DE LINK IMEDIATO PARA ENTRADA DE PRODUTOS */}
           <AnimatedView key={`btn-cadastro-${animationKey}`} from="fade" delay={50} duration={350}>
             <TouchableOpacity style={styles.btnAcessoRapidoCadastro} onPress={() => navigation.navigate('CadastrarProduto')}>
               <Icon name="add-box" size={20} color="#FFF" />
@@ -228,8 +282,10 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
             </TouchableOpacity>
           </AnimatedView>
 
+          {/* BARRA DE FERRAMENTAS (TOOLBAR): INPUT DE FILTRO E SELETORES DE ORDENAÇÃO */}
           <AnimatedView key={`toolbar-${animationKey}`} from="fade" delay={100} duration={350}>
             <View style={styles.toolbarRow}>
+              {/* Caixa de Texto para Filtragem Textual Dinâmica */}
               <View style={[styles.searchContainer, searchFocused && styles.searchContainerFocused]}>
                 <Icon name="search" size={18} color={theme.colors.textLight} style={styles.searchIcon} />
                 <TextInput
@@ -243,6 +299,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
                 />
               </View>
 
+              {/* Controles de Critério de Ordenação */}
               <View style={styles.orderingContainer}>
                 <Text style={styles.orderLabel}>Ordenar por:</Text>
                 <View style={styles.pickerWrapper}>
@@ -258,6 +315,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
                   </Picker>
                 </View>
 
+                {/* Gatilho de Direção Alternável (Crescente / Decrescente) */}
                 <TouchableOpacity 
                   style={styles.directionBtn} 
                   onPress={() => setDirecao(prev => prev === 'asc' ? 'desc' : 'asc')}
@@ -269,6 +327,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           </AnimatedView>
           
+          {/* CABEÇALHOS ESTRUTURAIS DA TABELA DE INVENTÁRIO */}
           <AnimatedView key={`th-${animationKey}`} from="top" delay={150} duration={350}>
             <View style={styles.tableHeader}>
               <Text style={[styles.headerCell, styles.codeCell]}>Código</Text>
@@ -280,6 +339,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           </AnimatedView>
           
+          {/* CORPO DE DADOS: RENDERIZADOR COMPACTO DA FLATLIST */}
           {loading ? (
             <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 30 }} />
           ) : (
@@ -288,11 +348,13 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
               keyExtractor={(item) => item.codigo.toString()}
               renderItem={renderItem}
               ListEmptyComponent={<Text style={styles.emptyText}>Nenhum produto em estoque</Text>}
+              // Componente nativo de Refresh para recarga arrastando a tela para baixo
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />}
               contentContainerStyle={styles.listContent}
             />
           )}
 
+          {/* GATILHO DE RETORNO AO MENU */}
           <TouchableOpacity style={styles.backToMenuBtn} onPress={() => navigation.navigate('HomeScreen')}>
             <Icon name="home" size={20} color="#FFF" />
             <Text style={styles.backToMenuText}>Voltar ao Menu Principal</Text>
@@ -300,7 +362,11 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </View>
 
-      {/* MODAL 1: MENU DE OPÇÕES DO PRODUTO */}
+      {/* ============================================================================
+          --- CAMADA DE MODAIS DE INTERAÇÃO (DIÁLOGOS DE INTERFACE) ---
+          ============================================================================ */}
+
+      {/* MODAL 1: MENU DE OPÇÕES PRIMÁRIAS DO ITEM SELECIONADO */}
       <Modal visible={modalOpcoesVisivel} transparent animationType="fade">
         <View style={styles.modalFundo}>
           <View style={styles.modalCard}>
@@ -326,7 +392,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </Modal>
 
-      {/* MODAL 2: CONFIRMAÇÃO DE EXCLUSÃO */}
+      {/* MODAL 2: CONFIRMAÇÃO DE DELEÇÃO FÍSICA DO ITEM */}
       <Modal visible={modalConfirmacaoVisivel} transparent animationType="fade">
         <View style={styles.modalFundo}>
           <View style={[styles.modalCard, { maxWidth: 350 }]}>
@@ -346,12 +412,13 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </Modal>
 
-      {/* MODAL 3: JANELA DE EDIÇÃO DOS ATRIBUTOS (CÓDIGO, DESCRIÇÃO, FORNECEDOR) */}
+      {/* MODAL 3: SUB-FORMULÁRIO INLINE DE ALTERAÇÃO DE ATRIBUTOS COMERCIAIS */}
       <Modal visible={modalEdicaoVisivel} transparent animationType="fade" onRequestClose={() => setModalEdicaoVisivel(false)}>
         <View style={styles.modalFundo}>
           <View style={[styles.modalCard, { maxWidth: 450 }]}>
             <Text style={styles.modalTitulo}>Alterar Atributos do Produto</Text>
             
+            {/* Input de Modificação de ID de Código */}
             <View style={styles.inputModalGroup}>
               <Text style={styles.modalInputLabel}>Código do Produto</Text>
               <TextInput 
@@ -362,15 +429,17 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
               />
             </View>
 
+            {/* Input de Modificação do Nome/Especificação da Carne */}
             <View style={styles.inputModalGroup}>
               <Text style={styles.modalInputLabel}>Descrição / Nome</Text>
               <TextInput 
                 style={styles.modalTextInput} 
                 value={editDescricao} 
-                onChangeText={editDescricao => setEditDescricao(editDescricao)}
+                onChangeText={text => setEditDescricao(text)}
               />
             </View>
 
+            {/* Input de Modificação de Fornecedor Comercial da Carga */}
             <View style={styles.inputModalGroup}>
               <Text style={styles.modalInputLabel}>Fornecedor Comercial</Text>
               <TextInput 
@@ -380,6 +449,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
               />
             </View>
 
+            {/* Botões de Ação do Painel Formulário Inline */}
             <View style={[styles.modalRowButtons, { marginTop: 15 }]}>
               <TouchableOpacity 
                 style={[styles.modalBtnHorizontal, styles.modalBtnCancel]} 
@@ -406,6 +476,9 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
 
 export default ConsultarEstoqueScreen;
 
+// ============================================================================
+// --- DESIGN SYSTEM / ESTILIZAÇÃO DO COMPONENTE (STYLESHEET) ---
+// ============================================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'rgba(245, 245, 220, 0.9)', padding: theme.spacing.m },
   panelCardContainer: { flex: 1, width: '100%', maxWidth: 850, alignSelf: 'center' },
@@ -452,7 +525,6 @@ const styles = StyleSheet.create({
   modalBtnCancel: { backgroundColor: '#e0e0e0' },
   modalBtnCancelText: { color: '#333', fontSize: 15, fontWeight: 'bold' },
 
-  // NOVOS COMPONENTES ESTILIZADOS PARA O FORMULÁRIO DE EDIÇÃO INLINE
   inputModalGroup: { width: '100%', marginBottom: 14, alignItems: 'flex-start' },
   modalInputLabel: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4 },
   modalTextInput: { width: '100%', borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 10, backgroundColor: '#fafafa', fontSize: 14, color: '#000' },

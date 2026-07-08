@@ -1,6 +1,6 @@
 // C:/Users/fabri/system-meatpack/src/App.tsx
 import React, { useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native'; // IMPORTAÇÃO OBRIGATÓRIA
+import { NavigationContainer } from '@react-navigation/native';
 import { initDB } from './services/database'; 
 import AppNavigator from './navigation/AppNavigator';
 

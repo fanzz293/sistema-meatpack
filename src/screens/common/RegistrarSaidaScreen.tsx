@@ -11,8 +11,10 @@ import ScreenWrapper from '../../components/ScreenWrapper';
 import AnimatedView from '../../components/AnimatedView';
 import Icon from '@expo/vector-icons/MaterialIcons';
 
+// Tipagem das propriedades de navegação vinculadas à rota atual
 type Props = NativeStackScreenProps<RootStackParamList, 'RegistrarSaida'>;
 
+// Lista de justificativas operacionais padrão para descarte ou movimentação de insumos
 const MOTIVOS_SAIDA = [
   'Preparo para a área de vendas',
   'Troca com fornecedor por avaria',
@@ -20,12 +22,17 @@ const MOTIVOS_SAIDA = [
   'Reservado para cliente'
 ];
 
+// Contrato estrutural para as linhas dinâmicas de saída física do formulário em lote
 interface RowSaida {
-  produto: Produto | null;
-  quantidade: string;
-  motivo: string;
+  produto: Produto | null; // Produto selecionado via buscador interno (Modal)
+  quantidade: string;      // Peso digitado em kg (armazenado como string para gerenciar decimais)
+  motivo: string;          // Justificativa selecionada
 }
 
+/**
+ * Utilitário multiplataforma para exibição de diálogos visuais.
+ * Redireciona a chamada para janelas nativas do navegador se rodando em ambiente Web.
+ */
 const exibirAlerta = (titulo: string, mensagem: string, botoes?: { text: string; onPress?: () => void }[]) => {
   if (Platform.OS === 'web') {
     window.alert(`${titulo}\n\n${mensagem}`);
@@ -37,14 +44,18 @@ const exibirAlerta = (titulo: string, mensagem: string, botoes?: { text: string;
 };
 
 const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
+  // --- ESTADOS REATIVOS DA INTERFACE ---
   const [produtosComEstoque, setProdutosComEstoque] = useState<Produto[]>([]);
   const [itensSaida, setItensSaida] = useState<RowSaida[]>([{ produto: null, quantidade: '', motivo: '' }]);
+  
+  // Controles de estado do buscador modular de produtos (Sub-Modal)
   const [modalVisivel, setModalVisivel] = useState(false);
-  const [indiceAtivo, setIndiceAtivo] = useState<number | null>(null);
+  const [indiceAtivo, setIndiceAtivo] = useState<number | null>(null); // Armazena qual linha do lote abriu o buscador
   const [termoBusca, setTermoBusca] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Carrega os produtos disponíveis sempre que a tela ganha foco
+  // 1. ATUALIZAÇÃO DO INVENTÁRIO DISPONÍVEL (HOOK DE FOCO)
+  // Filtra em tempo de execução apenas produtos que possuam saldo positivo (> 0 kg) para evitar baixas inválidas
   useFocusEffect(
     useCallback(() => {
       const carregarProdutos = async () => {
@@ -52,41 +63,59 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
           const lista = await getProdutos() || [];
           setProdutosComEstoque(lista.filter(p => p && p.quantidade > 0));
         } catch (e) {
-          console.error(e);
+          console.error('Falha ao carregar produtos com estoque ativo:', e);
         }
       };
       carregarProdutos();
     }, [])
   );
 
+  /**
+   * Atualizador dinâmico para propriedades de uma linha específica da matriz do lote.
+   */
   const handleRowChange = (index: number, field: keyof RowSaida, value: any) => {
     const novos = [...itensSaida];
     novos[index] = { ...novos[index], [field]: value };
     setItensSaida(novos);
   };
 
+  /**
+   * Insere uma nova linha vazia de formulário, expandindo o lote de movimentação.
+   */
   const handleAdicionarItemForm = () => {
     setItensSaida([...itensSaida, { produto: null, quantidade: '', motivo: '' }]);
   };
 
+  /**
+   * Remove uma linha específica do lote através do índice.
+   * Cláusula de barreira impede a exclusão caso reste apenas a linha pioneira.
+   */
   const handleRemoverItemForm = (index: number) => {
     if (itensSaida.length === 1) return;
     setItensSaida(itensSaida.filter((_, i) => i !== index));
   };
 
+  /**
+   * Ativa o Modal buscador configurando qual linha do lote receberá o produto escolhido.
+   */
   const handleAbrirBuscador = (index: number) => {
     setIndiceAtivo(index);
-    setTermoBusca('');
+    setTermoBusca(''); // Limpa buscas textuais anteriores
     setModalVisivel(true);
   };
 
-  // Processamento do lote de saídas e Redirecionamento com Callback
+  /**
+   * Orquestrador de Persistência e Baixa Física.
+   * Valida se as quantidades solicitadas não superam o saldo real do banco e processa a gravação.
+   */
   const handleRegistrarSaida = async () => {
     if (loading) return;
 
-    // 1. Validação estrita de cada linha do lote
+    // 1. Varredura estrita de validação de dados em cada linha da matriz
     for (let i = 0; i < itensSaida.length; i++) {
       const item = itensSaida[i];
+      
+      // Validação de nulidade dos campos obrigatórios
       if (!item.produto || !item.quantidade.trim() || !item.motivo) {
         exibirAlerta('Campos Obrigatórios', `Por favor, preencha todos os campos do item na linha #${i + 1}.`);
         return;
@@ -98,7 +127,7 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
         return;
       }
 
-      // CORRIGIDO: Agora usa a propriedade correta '.quantidade' do seu banco de dados
+      // Restrição de negócio mestre: Impede a saída caso o peso digitado supere o saldo real da propriedade '.quantidade'
       if (qtdDigitada > item.produto.quantidade) {
         exibirAlerta('Estoque Insuficiente', `A quantidade da linha #${i + 1} excede o limite disponível (${item.produto.quantidade} kg).`);
         return;
@@ -108,20 +137,19 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // 2. Grava item por item no banco de dados
+      // 2. Loop iterativo de gravação assíncrona no SQLite / LocalStorage
       for (const item of itensSaida) {
         if (item.produto) {
           await registrarSaidaProduto(item.produto.codigo, parseFloat(item.quantidade), item.motivo);
         }
       }
       
-      // 3. Alerta com Callback e Redirecionamento Válido para o AppNavigator
+      // 3. Feedback visual e redirecionamento injetando mensagem de sucesso via rota
       exibirAlerta('Sucesso', 'Baixa de mercadorias salva com sucesso!', [
         {
           text: 'OK',
           onPress: () => {
-            setItensSaida([{ produto: null, quantidade: '', motivo: '' }]);
-            // Usando 'infoMessage' que é aceito pelo tipo da rota no seu AppNavigator
+            setItensSaida([{ produto: null, quantidade: '', motivo: '' }]); // Limpa o formulário mestre
             navigation.navigate('ConsultarEstoque', { infoMessage: 'Saída de estoque registrada com sucesso!' });
           }
         }
@@ -137,6 +165,8 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <ScreenWrapper>
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        
+        {/* CABEÇALHO ANIMADO DA TELA */}
         <AnimatedView from="top" duration={450}>
           <View style={styles.headerContainer}>
             <Text style={styles.title}>Registrar Saída</Text>
@@ -144,10 +174,15 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </AnimatedView>
 
+        {/* CONTAINER DO FORMULÁRIO EM LOTE */}
         <AnimatedView from="bottom" delay={100} duration={500}>
           <View style={styles.panelCardContainer}>
+            
+            {/* MAPEAMENTO VERTICAL DOS CARDS DE SAÍDA */}
             {itensSaida.map((item, index) => (
               <View key={index} style={styles.itemLoteCard}>
+                
+                {/* Linha de cabeçalho interna com ação de exclusão do card */}
                 <View style={styles.rowCardHeader}>
                   <Text style={styles.itemTitle}>Saída #{index + 1}</Text>
                   {itensSaida.length > 1 && (
@@ -157,6 +192,7 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
                   )}
                 </View>
 
+                {/* GATILHO DE ABERTURA DO BUSCADOR MODAL */}
                 <Text style={styles.label}>Produto de Estoque</Text>
                 <TouchableOpacity style={styles.selecionarButton} onPress={() => handleAbrirBuscador(index)}>
                   <Text style={item.produto ? styles.txtBtnAtivo : styles.txtBtnPlaceholder}>
@@ -165,6 +201,7 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
                   <Icon name="arrow-drop-down" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
 
+                {/* GRUPO DE FORMULÁRIO: QUANTIDADE E PICKER DE MOTIVAÇÃO */}
                 <View style={styles.formRow}>
                   <View style={[styles.inputGroup, styles.flex4]}>
                     <Text style={styles.label}>Quantidade (kg)</Text>
@@ -181,14 +218,17 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                   </View>
                 </View>
+                
               </View>
             ))}
 
+            {/* GATILHO DE ADIÇÃO DE NOVA LINHA */}
             <TouchableOpacity style={styles.btnIncluirLinha} onPress={handleAdicionarItemForm}>
               <Icon name="add" size={18} color={theme.colors.primary} />
               <Text style={styles.btnIncluirLinhaTexto}>Incluir outro item de saída</Text>
             </TouchableOpacity>
 
+            {/* BOTÃO MESTRE DE SUBMISSÃO E SALVAMENTO */}
             <TouchableOpacity style={[styles.button, loading && { opacity: 0.6 }]} onPress={handleRegistrarSaida} disabled={loading}>
               <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>
                 {loading ? 'Processando baixa...' : 'Confirmar e Salvar Saída'}
@@ -198,22 +238,30 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
         </AnimatedView>
       </ScrollView>
 
-      {/* MODAL DE SELEÇÃO DE PRODUTO */}
+      {/* ============================================================================
+          --- MODAL EMBUTIDO: BUSCADOR TEXTUAL DE PRODUTOS DISPONÍVEIS ---
+          ============================================================================ */}
       <Modal visible={modalVisivel} transparent={true} animationType="fade" onRequestClose={() => setModalVisivel(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
+            
+            {/* Cabeçalho do Modal Buscador */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecionar Produto</Text>
               <TouchableOpacity onPress={() => setModalVisivel(false)}><Icon name="close" size={24} /></TouchableOpacity>
             </View>
+            
+            {/* Input reativo de filtro em tempo de execução sobre a lista em cache */}
             <TextInput style={styles.buscaInput} placeholder="Buscar por descrição..." value={termoBusca} onChangeText={setTermoBusca} />
+            
+            {/* Listagem de Itens localizados */}
             <FlatList
               data={produtosComEstoque.filter(p => p.descricao.toLowerCase().includes(termoBusca.toLowerCase()))}
               keyExtractor={(item) => item.codigo.toString()}
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.produtoItem} onPress={() => {
-                  if (indiceAtivo !== null) handleRowChange(indiceAtivo, 'produto', item);
-                  setModalVisivel(false);
+                  if (indiceAtivo !== null) handleRowChange(indiceAtivo, 'produto', item); // Vincula o produto à célula correta
+                  setModalVisivel(false); // Fecha a janela de busca
                 }}>
                   <Text style={styles.produtoNome}>{item.descricao}</Text>
                   <Text style={styles.produtoDetalhes}>Código: #{item.codigo} | Estoque Atual: {item.quantidade} kg</Text>
@@ -227,8 +275,9 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-export default RegistrarSaidaScreen;
-
+// ============================================================================
+// --- FOLHA DE ESTILOS DA INTERFACE (STYLESHEET) ---
+// ============================================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'rgba(245, 245, 220, 0.9)' },
   contentContainer: { padding: theme.spacing.m, paddingBottom: 40 },
