@@ -1,0 +1,33 @@
+name: Meatpack Logística CI
+
+# Define os gatilhos de disparo do fluxo automatizado
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Baixa o código-fonte do repositório para a máquina virtual do GitHub
+      - name: 📥 Checkout do Código
+        uses: actions/checkout@v4
+
+      # 2. Configura o ambiente Node.js correto (compatível com o Expo SDK 51)
+      - name: 🟢 Configurar Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm' # Ativa o cache automático para acelerar os próximos builds
+
+      # 3. Instala as dependências de forma limpa e idêntica ao package-lock.json
+      - name: 📦 Instalar Dependências
+        run: npm ci
+
+      # 4. Executa a validação estrita do compilador do TypeScript
+      # O '--noEmit' garante que ele apenas cheque os tipos, sem gerar arquivos JS físicos na VM
+      - name: 🛡️ Validar Tipagem do TypeScript
+        run: npx tsc --noEmit
