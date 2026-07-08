@@ -17,11 +17,16 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthStackParamList';
 import { theme } from '../../styles/theme';
 import AnimatedView from '../../components/AnimatedView';
-import ScreenWrapper from '../../components/ScreenWrapper'; // IMPORTADO
+import ScreenWrapper from '../../components/ScreenWrapper';
 import Icon from '@expo/vector-icons/MaterialIcons';
 
+// Tipagem das propriedades de navegação vinculadas à pilha de autenticação
 type Props = NativeStackScreenProps<AuthStackParamList, 'Signup'>;
 
+/**
+ * Utilitário multiplataforma para exibição de diálogos informativos.
+ * Canaliza a execução para caixas nativas (Mobile) ou prompts síncronos (Web).
+ */
 const exibirAlerta = (titulo: string, mensagem: string, botoes?: { text: string; onPress?: () => void }[]) => {
   if (Platform.OS === 'web') {
     window.alert(`${titulo}\n\n${mensagem}`);
@@ -33,6 +38,7 @@ const exibirAlerta = (titulo: string, mensagem: string, botoes?: { text: string;
 };
 
 export default function SignupScreen({ navigation }: Props) {
+  // --- ESTADO ÚNICO DO FORMULÁRIO (DADOS CADASTRAIS) ---
   const [formData, setFormData] = useState({
     apelido: '',
     senha: '',
@@ -45,42 +51,70 @@ export default function SignupScreen({ navigation }: Props) {
     email: '',
     telefone: '',
   });
+  
+  // --- ESTADOS DE CONTROLE VISUAL E CONTRATUAL ---
   const [aceitaTermos, setAceitaTermos] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Alterna a máscara de segurança do input de senha
 
+  /**
+   * Atualizador genérico de chaves de estado de texto do formulário.
+   */
   const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  /**
+   * Validador Algorítmico de CPF baseado no cálculo dos Dígitos Verificadores (DVs).
+   * Elimina máscaras e executa varreduras matemáticas de integridade nacional.
+   */
   const validateCPF = (cpf: string): boolean => {
+    // Sanitização completa: Remove qualquer caractere que não seja numérico
     cpf = cpf.replace(/[^\d]/g, '');
+    
+    // Rejeição sumária caso não possua 11 dígitos ou seja uma sequência conhecida de números repetidos
     if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+    
+    // Validação matemática do Primeiro Dígito Verificador (Posição 9)
     let sum = 0;
     for (let i = 0; i < 9; i++) sum += parseInt(cpf.charAt(i)) * (10 - i);
     let remainder = 11 - (sum % 11);
     if (remainder === 10 || remainder === 11) remainder = 0;
     if (remainder !== parseInt(cpf.charAt(9))) return false;
+    
+    // Validação matemática do Segundo Dígito Verificador (Posição 10)
     sum = 0;
     for (let i = 0; i < 10; i++) sum += parseInt(cpf.charAt(i)) * (11 - i);
     remainder = 11 - (sum % 11);
     if (remainder === 10 || remainder === 11) remainder = 0;
+    
     return remainder === parseInt(cpf.charAt(10));
   };
 
+  /**
+   * Validador de Força de Senha Corporativa via Regex (Expressão Regular).
+   * Exige: Mínimo 8 caracteres, 1 Letra Maiúscula, 1 Minúscula, 1 Número e 1 Caractere Especial.
+   */
   const validatePassword = (password: string): boolean => {
     return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(password);
   };
 
+  /**
+   * Orquestrador de Submissão do Cadastro.
+   * Valida as restrições de negócio e persiste as informações no banco de dados local ou mockado.
+   */
   const handleSignup = async () => {
+    // 1. Barreira contratual de Termos de Uso
     if (!aceitaTermos) {
       exibirAlerta('Atenção', 'Você precisa aceitar os termos de uso.');
       return;
     }
+    // 2. Barreira de segurança cibernética de senha
     if (!validatePassword(formData.senha)) {
       exibirAlerta('Senha inválida', 'A senha deve conter pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, 1 número e 1 símbolo.');
       return;
     }
+    // 3. Barreira fiscal/legal de identificação (CPF)
     if (!validateCPF(formData.cpf)) {
       exibirAlerta('CPF inválido', 'Por favor, insira um CPF válido.');
       return;
@@ -88,6 +122,7 @@ export default function SignupScreen({ navigation }: Props) {
 
     setIsLoading(true);
     try {
+      // Mescla as chaves de texto com a flag de termos e despacha para o database.ts
       await addCliente({ ...formData, aceitaTermos });
       exibirAlerta('Cadastro realizado!', 'Faça agora o seu login.', [
         { text: 'OK', onPress: () => navigation.navigate('Login') }
@@ -99,6 +134,8 @@ export default function SignupScreen({ navigation }: Props) {
     }
   };
 
+  // --- ARRAYS DE CONFIGURAÇÃO DE RENDERIZAÇÃO EM LOTE (MAPPING) ---
+  // Mapeia os inputs de forma declarativa para enxugar o código JSX da tela
   const formFields = [
     { field: 'apelido', label: 'Apelido', placeholder: 'Como quer ser chamado', keyboardType: 'default' as const },
     { field: 'nomeCompleto', label: 'Nome Completo', placeholder: 'Seu nome completo', keyboardType: 'default' as const },
@@ -114,8 +151,15 @@ export default function SignupScreen({ navigation }: Props) {
   return (
     <ScreenWrapper>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.select({ ios: 'padding', android: undefined })}>
+      
+      {/* 'KeyboardAvoidingView' evita que o teclado virtual do smartphone cubra os inputs inferiores do formulário */}
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.select({ ios: 'padding', android: undefined })}
+      >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
+          
+          {/* ANIMAÇÃO DE ENTRADA DO CABEÇALHO */}
           <AnimatedView from="top">
             <View style={styles.header}>
               <Text style={styles.title}>Criar Conta</Text>
@@ -123,8 +167,12 @@ export default function SignupScreen({ navigation }: Props) {
             </View>
           </AnimatedView>
 
+          {/* PAINEL CENTRALIZADO DO FORMULÁRIO */}
           <View style={styles.formContainer}>
+            
+            {/* RENDERIZAÇÃO DINÂMICA DOS CAMPOS DE TEXTO MAURADOS NO ARRAY */}
             {formFields.map((item, index) => (
+              // Cada linha possui um atraso incremental (index * 50ms) criando um efeito cascade suave de entrada
               <AnimatedView key={item.field} from="right" delay={200 + index * 50}>
                 <Text style={styles.label}>{item.label}</Text>
                 <TextInput
@@ -134,11 +182,13 @@ export default function SignupScreen({ navigation }: Props) {
                   value={formData[item.field as keyof typeof formData]}
                   onChangeText={(text) => handleChange(item.field as keyof typeof formData, text)}
                   keyboardType={item.keyboardType}
+                  // Força caixa baixa se for e-mail, ou inicia palavras em maiúsculas (Nomes, Bairros)
                   autoCapitalize={item.field === 'email' ? 'none' : 'words'}
                 />
               </AnimatedView>
             ))}
 
+            {/* CAMPO EXCLUSIVO DE SENHA (MÁSCARA CHAVEÁVEL) */}
             <AnimatedView from="bottom" delay={700}>
               <Text style={styles.label}>Senha</Text>
               <View style={styles.passwordContainer}>
@@ -148,9 +198,10 @@ export default function SignupScreen({ navigation }: Props) {
                   placeholderTextColor={theme.colors.textLight}
                   value={formData.senha}
                   onChangeText={(text) => handleChange('senha', text)}
-                  secureTextEntry={!showPassword}
+                  secureTextEntry={!showPassword} // Oculta os caracteres se showPassword for falso
                   textContentType="password"
                 />
+                {/* Botão de alternância visual do olho de visibilidade da senha */}
                 <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
                   <Icon name={showPassword ? 'visibility' : 'visibility-off'} size={20} color={theme.colors.textLight} />
                 </TouchableOpacity>
@@ -158,6 +209,7 @@ export default function SignupScreen({ navigation }: Props) {
               <Text style={styles.passwordHint}>A senha deve conter pelo menos 8 caracteres, com maiúsculas, minúsculas, número e símbolo.</Text>
             </AnimatedView>
 
+            {/* SESSÃO CONTRATUAL: CHECKBOX DE TERMOS DE USO */}
             <AnimatedView from="bottom" delay={800}>
               <TouchableOpacity style={styles.termsContainer} onPress={() => setAceitaTermos(!aceitaTermos)}>
                 <View style={[styles.checkbox, aceitaTermos && styles.checkboxChecked]}>
@@ -167,13 +219,19 @@ export default function SignupScreen({ navigation }: Props) {
               </TouchableOpacity>
             </AnimatedView>
 
+            {/* GATILHO DE SUBMISSÃO CADASTRAL */}
             <AnimatedView from="bottom" delay={900}>
-              <TouchableOpacity style={[styles.signupButton, isLoading && styles.signupButtonDisabled]} onPress={handleSignup} disabled={isLoading}>
+              <TouchableOpacity 
+                style={[styles.signupButton, isLoading && styles.signupButtonDisabled]} 
+                onPress={handleSignup} 
+                disabled={isLoading}
+              >
                 <Icon name="person-add" size={20} color="#FFF" style={styles.buttonIcon} />
                 <Text style={styles.signupButtonText}>{isLoading ? 'Criando conta...' : 'Criar Conta'}</Text>
               </TouchableOpacity>
             </AnimatedView>
 
+            {/* LINK RETROATIVO DE RETORNO */}
             <AnimatedView from="bottom" delay={1000}>
               <TouchableOpacity style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
                 <Icon name="arrow-back" size={16} color={theme.colors.primary} />
@@ -181,12 +239,16 @@ export default function SignupScreen({ navigation }: Props) {
               </TouchableOpacity>
             </AnimatedView>
           </View>
+          
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenWrapper>
   );
 }
 
+// ============================================================================
+// --- FOLHA DE ESTILOS DA INTERFACE (STYLESHEET) ---
+// ============================================================================
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContainer: { padding: theme.spacing.m, paddingBottom: theme.spacing.xxl },

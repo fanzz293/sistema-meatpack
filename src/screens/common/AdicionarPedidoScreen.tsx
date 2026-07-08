@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Alert, StyleSheet, ScrollView, TouchableOpacity, Platform, TextInput, KeyboardAvoidingView, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { useFocusEffect } from '@react-navigation/native'; // REINCORPORADO: O único gatilho 100% seguro para recarga de tela
+import { useFocusEffect } from '@react-navigation/native';
 import { adicionarPedido, getFornecedores, getProdutos, Produto } from '../../services/database';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -11,32 +11,41 @@ import AnimatedView from '../../components/AnimatedView';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import Icon from '@expo/vector-icons/MaterialIcons';
 
+// Tipagem das propriedades de navegação vinculadas à rota atual
 type Props = NativeStackScreenProps<RootStackParamList, 'AdicionarPedido'>;
 
+// Estrutura de controle para as linhas dinâmicas de itens da ordem de compra
 interface ItemPedido {
-  produto: Produto | null;
-  quantidade: string;
+  produto: Produto | null; // Objeto completo do produto selecionado ou null
+  quantidade: string;      // Armazenado como string para gerenciar melhor a digitação de decimais (kg)
 }
 
 const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
+  // --- ESTADOS REATIVOS DA TELA ---
   const [fornecedores, setFornecedores] = useState<string[]>([]);
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<Produto[]>([]);
   const [produtosFiltrados, setProdutosFiltrados] = useState<Produto[]>([]);
   const [fornecedorSelecionado, setFornecedorSelecionado] = useState('');
+  
+  // Inicia o formulário com uma linha de item limpa (Estado dinâmico de Matriz)
   const [itens, setItens] = useState<ItemPedido[]>([{ produto: null, quantidade: '' }]);
   
+  // Estados para armazenamento cronológico do agendamento
   const [dataPedido, setDataPedido] = useState('');
   const [horaPedido, setHoraPedido] = useState('');
 
+  // --- CONTROLES DE ESTADO DOS MODAIS CUSTOMIZADOS ---
   const [modalCalendario, setModalCalendario] = useState(false);
   const [modalRelogio, setModalRelogio] = useState(false);
-  const [relogioEtapa, setRelogioEtapa] = useState<'hora' | 'minuto'>('hora');
+  const [relogioEtapa, setRelogioEtapa] = useState<'hora' | 'minuto'>('hora'); // Controla o sub-fluxo do seletor de horas
   const [horaEscolhida, setHoraEdit] = useState('');
 
-  // 1. CARREGAMENTO BLINDADO: Imune a produtos velhos sem fornecedor ou erros nulos
+  // 1. CARREGAMENTO BLINDADO DE DADOS (HOOK DE FOCO)
+  // 'useFocusEffect' garante que os dados do banco local sejam re-consultados toda vez que a tela
+  // ganhar foco (ex: vindo de um atalho ou após um novo cadastro), limpando produtos obsoletos.
   useFocusEffect(
     useCallback(() => {
-      let isActive = true;
+      let isActive = true; // Flag de controle para evitar atualizações em componentes desmontados
 
       const carregarDadosSeguros = async () => {
         try {
@@ -45,53 +54,58 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
           
           if (!isActive) return;
 
-          // Extração defensiva: Varre todos os produtos, ignora nulos e limpa os nomes
+          // Extração defensiva (Sanitização em lote): Varre os produtos ignorando nulos e extrai os nomes
           const fornecedoresExtraidos = produtosLista
             .filter(p => p && p.fornecedor) 
             .map(p => String(p.fornecedor).trim())
             .filter(nome => nome.length > 0);
 
-          // Limpa a lista nativa que vem do banco
+          // Limpa e formata os dados textuais nativos vindos da tabela SQLite de fornecedores
           const fornecedoresDb = fornecedoresBanco
             .filter(f => f)
             .map(f => String(f).trim())
             .filter(f => f.length > 0);
 
-          // Une as duas listas, remove as duplicatas matematicamente e organiza de A a Z
+          // Une as duas fontes de dados, elimina duplicidades através do operador matemático Set e ordena de A a Z
           const listaUnificada = [...new Set([...fornecedoresDb, ...fornecedoresExtraidos])].sort();
 
           setFornecedores(listaUnificada);
           setProdutosDisponiveis(produtosLista);
         } catch (error) {
-          console.error('Erro na extração de fornecedores:', error);
+          console.error('Erro na extração e unificação de fornecedores:', error);
         }
       };
 
       carregarDadosSeguros();
 
-      return () => { isActive = false; }; // Limpa a memória se a tela fechar rápido
+      // Função de limpeza executada automaticamente se o operador sair da tela antes do término das Promises
+      return () => { isActive = false; };
     }, [])
   );
 
-  // 2. INICIALIZAÇÃO DE DATA E INTERCEPTAÇÃO DE ROTAS
+  // 2. INICIALIZAÇÃO CRONOLÓGICA E CAPTURA DE DEEP LINKS INTERNOS
   useEffect(() => {
+    // Caso a data esteja em branco, preenche automaticamente com o momento presente do sistema
     if (!dataPedido) {
       const agora = new Date();
       setDataPedido(agora.toLocaleDateString('pt-BR'));
       setHoraPedido(agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
     }
 
+    // Intercepta parâmetros de rota: Caso o operador tenha clicado em "Comprar" diretamente da tela de Estoque,
+    // o sistema popula o fornecedor e o item selecionado de forma automática.
     if (route.params?.produtoPreSelecionado) {
       const produtoVindo = route.params.produtoPreSelecionado;
       if (produtoVindo && produtoVindo.fornecedor) {
         setFornecedorSelecionado(String(produtoVindo.fornecedor).trim());
         setItens([{ produto: produtoVindo, quantidade: '1.0' }]);
-        navigation.setParams({ produtoPreSelecionado: undefined });
+        navigation.setParams({ produtoPreSelecionado: undefined }); // Limpa a rota para evitar loops
       }
     }
   }, [route.params?.produtoPreSelecionado]);
 
-  // 3. FILTRAGEM BLINDADA DE PRODUTOS DO FORNECEDOR
+  // 3. FILTRAGEM REATIVA DE PRODUTOS POR VÍNCULO COM O FORNECEDOR
+  // Garante que o operador só consiga adicionar itens que pertençam estritamente ao fornecedor selecionado.
   useEffect(() => {
     if (fornecedorSelecionado) {
       const filtroLimpo = String(fornecedorSelecionado).trim();
@@ -105,11 +119,19 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [fornecedorSelecionado, produtosDisponiveis]);
 
+  /**
+   * Modifica o fornecedor principal da ordem de compra.
+   * Reseta a lista de itens para evitar inconsistências (vender item de outra empresa).
+   */
   const handleFornecedorChange = (fornecedor: string) => {
     setFornecedorSelecionado(fornecedor);
-    setItens([{ produto: null, quantidade: '' }]); // Reseta a lista se mudar a empresa
+    setItens([{ produto: null, quantidade: '' }]); 
   };
 
+  /**
+   * Controla a digitação da quantidade em uma linha específica do lote.
+   * Aplica uma barreira Regex para permitir apenas números reais positivos com ponto decimal.
+   */
   const handleQuantidadeChange = (index: number, quantidade: string) => {
     if (quantidade === '' || /^\d*\.?\d*$/.test(quantidade)) {
       const novosItens = [...itens];
@@ -118,13 +140,18 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
+  /**
+   * Valida as regras de negócio do lote e persiste o agendamento logístico no banco de dados.
+   */
   const handleAdicionarPedido = async () => {
     if (!fornecedorSelecionado) { Alert.alert('Erro', 'Selecione um fornecedor homologado.'); return; }
     if (!dataPedido || !horaPedido) { Alert.alert('Erro', 'Defina a data e o horário.'); return; }
     
+    // Filtra removendo da submissão linhas incompletas ou com peso igual/menor a zero
     const itensValidos = itens.filter(item => item.produto && item.quantidade && parseFloat(item.quantidade) > 0);
     if (itensValidos.length === 0) { Alert.alert('Erro', 'Adicione pelo menos um item válido na compra.'); return; }
 
+  // Estrutura o payload logístico unificando data e horário em uma string composta
     try {
       const dataAgendadaComposta = `${dataPedido} às ${horaPedido}`;
       await adicionarPedido({
@@ -141,29 +168,36 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
       
       Alert.alert('Sucesso', 'Pedido logístico agendado com sucesso!');
       
-      // Reseta a tela inteira para o próximo uso
+      // Reseta os estados locais do formulário para preparar a tela para o próximo ciclo de uso
       setFornecedorSelecionado('');
       setItens([{ produto: null, quantidade: '' }]);
       
+      // Direciona o operador para a listagem de acompanhamento, injetando flag de recarga
       navigation.navigate('AcompanharPedidos', { refresh: true });
     } catch (error) { 
       Alert.alert('Erro', 'Falha ao processar a gravação do pedido.'); 
     }
   };
 
+  /**
+   * Processa a seleção do dia no modal de calendário customizado.
+   */
   const selecionarDiaCalendario = (dia: number) => {
     const mesAno = new Date().toLocaleString('pt-BR', { month: '2-digit', year: 'numeric' });
     setDataPedido(`${dia < 10 ? '0' + dia : dia}/${mesAno}`);
     setModalCalendario(false);
   };
 
+  /**
+   * Controla a máquina de estados bi-etapa do relógio (Selecionar Hora -> Mudar Etapa -> Selecionar Minuto).
+   */
   const selecionarHoraRelogio = (valor: string) => {
     if (relogioEtapa === 'hora') {
       setHoraEdit(valor);
-      setRelogioEtapa('minuto');
+      setRelogioEtapa('minuto'); // Avança o estado visual para os blocos de minutos
     } else {
       setHoraPedido(`${horaEscolhida}:${valor}`);
-      setModalRelogio(false);
+      setModalRelogio(false); // Fecha o modal após a conclusão da segunda etapa
     }
   };
 
@@ -172,14 +206,18 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
     setModalRelogio(true);
   };
 
+  // --- GERADORES DE MATRIZES MOCKADAS PARA RENDERIZAÇÃO DOS SELETORES ---
   const diasMock = Array.from({ length: 31 }, (_, i) => i + 1);
   const horasMock = Array.from({ length: 24 }, (_, i) => i < 10 ? `0${i}` : `${i}`);
   const minutosMock = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
   return (
     <ScreenWrapper>
+      {/* 'KeyboardAvoidingView' gerencia o comportamento de scroll para os inputs não sumirem sob o teclado */}
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+          
+          {/* CABEÇALHO DA TELA */}
           <AnimatedView from="top">
             <View style={styles.headerContainer}>
               <Text style={styles.title}>Adicionar Pedido</Text>
@@ -187,9 +225,11 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           </AnimatedView>
 
+          {/* CARD DO FORMULÁRIO OPERACIONAL */}
           <AnimatedView from="bottom" delay={100}>
             <View style={styles.panelCard}>
               
+              {/* SELETORES CHAVEÁVEIS DE CRONOGRAMA (DATA / HORA) */}
               <View style={styles.rowGrid}>
                 <View style={styles.flex1}>
                   <Text style={styles.label}>Previsão de Data</Text>
@@ -207,6 +247,7 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
               </View>
 
+              {/* DROPDOWN NATIVO: FORNECEDOR COMERCIAL */}
               <Text style={styles.sectionTitle}>Fornecedor Homologado</Text>
               <View style={styles.pickerContainerFornecedor}>
                 <Picker 
@@ -221,10 +262,12 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
                 </Picker>
               </View>
 
+              {/* LISTAGEM DINÂMICA EM LOTE (ITENS DO PEDIDO) */}
               <Text style={styles.sectionTitle}>Itens da Ordem de Compra</Text>
               {itens.map((item, index) => (
                 <View key={index} style={styles.itemCardContainer}>
                   <View style={styles.rowGrid}>
+                    {/* Campo de Seleção do Produto filtrado pela empresa */}
                     <View style={styles.flex7}>
                       <Text style={styles.label}>Produto</Text>
                       <View style={styles.pickerContainer}>
@@ -236,7 +279,7 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
                             setItens(novosItens);
                           }} 
                           style={styles.picker} 
-                          enabled={!!fornecedorSelecionado}
+                          enabled={!!fornecedorSelecionado} // Fica bloqueado até que uma empresa seja selecionada
                         >
                           <Picker.Item label="Selecione o produto" value="" color="#888" />
                           {produtosFiltrados.map(p => (
@@ -246,6 +289,7 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
                       </View>
                     </View>
 
+                    {/* Campo de Input Numérico de Peso da Carga */}
                     <View style={styles.flex3}>
                       <Text style={styles.label}>Qtd (kg)</Text>
                       <TextInput 
@@ -260,6 +304,7 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
                 </View>
               ))}
 
+              {/* GATILHO PARA ANEXAR NOVA LINHA DE PRODUTO AO LOTE */}
               <TouchableOpacity 
                 style={[styles.addButtonCompacto, !fornecedorSelecionado && { opacity: 0.5 }]} 
                 onPress={() => setItens([...itens, { produto: null, quantidade: '' }])} 
@@ -269,6 +314,7 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text style={styles.addButtonText}>Incluir Item</Text>
               </TouchableOpacity>
 
+              {/* CONFIRMAÇÃO DE CADASTRO MESTRE */}
               <TouchableOpacity style={styles.concluirButton} onPress={handleAdicionarPedido}>
                 <Icon name="check-circle" size={22} color="#FFF" />
                 <Text style={styles.concluirButtonText}>Concluir e Enviar Pedido</Text>
@@ -278,7 +324,11 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL DE CALENDÁRIO */}
+      {/* ============================================================================
+          --- MODAIS INTEGRADOS DE INTERAÇÃO (DIÁLOGOS CUSTOMIZADOS) ---
+          ============================================================================ */}
+
+      {/* SELETOR 1: GRID DE DIAS DO CALENDÁRIO */}
       <Modal visible={modalCalendario} transparent animationType="fade">
         <View style={styles.modalFundo}>
           <View style={styles.modalCardContainer}>
@@ -297,7 +347,7 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </Modal>
 
-      {/* MODAL DE RELÓGIO ANALÓGICO */}
+      {/* SELETOR 2: RELÓGIO REATIVO BI-ETAPA */}
       <Modal visible={modalRelogio} transparent animationType="fade">
         <View style={styles.modalFundo}>
           <View style={styles.modalCardContainer}>
@@ -306,12 +356,14 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
             </Text>
             <ScrollView contentContainerStyle={styles.relogioGrid}>
               {relogioEtapa === 'hora' ? (
+                // Renderização da Etapa A: Horas (00h às 23h)
                 horasMock.map(h => (
                   <TouchableOpacity key={`hora-${h}`} style={styles.relogioItemBtn} onPress={() => selecionarHoraRelogio(h)}>
                     <Text style={styles.relogioItemTexto}>{h}h</Text>
                   </TouchableOpacity>
                 ))
               ) : (
+                // Renderização da Etapa B: Minutos em intervalos de 5 min
                 minutosMock.map(m => (
                   <TouchableOpacity key={`min-${m}`} style={[styles.relogioItemBtn, { backgroundColor: '#eef5ee' }]} onPress={() => selecionarHoraRelogio(m)}>
                     <Text style={[styles.relogioItemTexto, { color: 'green' }]}>{m} min</Text>
@@ -332,6 +384,9 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
 
 export default AdicionarPedidoScreen;
 
+// ============================================================================
+// --- FOLHA DE ESTILOS DA INTERFACE (STYLESHEET) ---
+// ============================================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'rgba(245, 245, 220, 0.9)' },
   contentContainer: { padding: theme.spacing.m, paddingBottom: 50 },

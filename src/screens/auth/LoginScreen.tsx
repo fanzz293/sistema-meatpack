@@ -9,11 +9,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@expo/vector-icons/MaterialIcons';
 import * as SQLite from 'expo-sqlite';
 
+// Tipagem das propriedades recebidas pela tela através do React Navigation Stack
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
+/**
+ * Utilitário Abstrato de Feedback Visual (Multiplataforma).
+ * Contorna as limitações de renderização do componente 'Alert' do React Native,
+ * disparando caixas de diálogo nativas no ecossistema Mobile ou fallbacks em JS no ambiente Web.
+ */
 const exibirAlerta = (titulo: string, mensagem: string, botoes?: { text: string; onPress?: () => void }[]) => {
   if (Platform.OS === 'web') {
     window.alert(`${titulo}\n\n${mensagem}`);
+    // Localiza e executa programmaticamente o callback de confirmação padrão (caso exista)
     const botaoOk = botoes?.find(b => b.onPress);
     if (botaoOk && botaoOk.onPress) botaoOk.onPress();
   } else {
@@ -22,11 +29,17 @@ const exibirAlerta = (titulo: string, mensagem: string, botoes?: { text: string;
 };
 
 export default function LoginScreen({ navigation }: Props) {
+  // --- CONTROLE DE ESTADOS DO FORMULÁRIO ---
   const [username, setUsername] = useState('');
   const [senha, setSenha] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // Ativa o feedback visual de processamento de rede/banco
 
+  /**
+   * Processador Principal do Fluxo de Autenticação.
+   * Realiza higienização de strings e bifurca o acesso em três camadas hierárquicas.
+   */
   const handleLogin = async () => {
+    // Validação estrita de campos vazios antes do processamento
     if (!username || !senha) {
       exibirAlerta('Aviso', 'Por favor, preencha todos os campos.');
       return;
@@ -34,15 +47,17 @@ export default function LoginScreen({ navigation }: Props) {
 
     setLoading(true);
 
-    // .trim() em ambos os campos para pulverizar espaços invisíveis colados por engano
+    // Tratamento higiênico de inputs (Sanitização)
+    // Remove espaçamentos invisíveis inseridos por teclados móveis (.trim()) e ignora o Case-Sensitive
     const usuarioLimpo = username.trim().toLowerCase();
     const senhaLimpa = senha.trim();
 
     // --------------------------------------------------------------------------------
-    // COMANDO MASTER DE EMERGÊNCIA (BACKDOOR DE RESET)
+    // CANAL A: COMANDO MASTER DE EMERGÊNCIA (BACKDOOR DE RESET)
     // --------------------------------------------------------------------------------
+    // Permite restaurar o sistema caso o administrador mude a senha mestra e a perca por esquecimento.
     if (usuarioLimpo === 'admin' && senhaLimpa === 'reset') {
-      await AsyncStorage.removeItem('@meatpack:admin_password');
+      await AsyncStorage.removeItem('@meatpack:admin_password'); // Remove a senha alterada do disco
       setSenha('');
       setLoading(false);
       exibirAlerta(
@@ -53,16 +68,18 @@ export default function LoginScreen({ navigation }: Props) {
     }
 
     // --------------------------------------------------------------------------------
-    // 1. VALIDAÇÃO DO ADMINISTRADOR
+    // CANAL B: VALIDAÇÃO DO ADMINISTRADOR DO SISTEMA (CONTA CORPORATIVA MASTER)
     // --------------------------------------------------------------------------------
+    // O Administrador não fica registrado na tabela comum de clientes. Suas credenciais
+    // residem em chaves isoladas no AsyncStorage para segurança estrutural de permissões.
     if (usuarioLimpo === 'admin') {
       try {
         const senhaMemory = await AsyncStorage.getItem('@meatpack:admin_password');
         
-        // Proteção contra falsos positivos de conversão do JS (ex: a string literal "undefined")
+        // Proteção contra falsos positivos de conversão do JS (evita ler strings literais "undefined")
         const senhaOficial = (senhaMemory && senhaMemory !== 'undefined' && senhaMemory !== 'null') 
           ? senhaMemory.trim() 
-          : '123456abc';
+          : '123456abc'; // Senha fallback padrão de fábrica
 
         console.log(`[AUDITORIA] Digitado: "${senhaLimpa}" | O Banco aguarda: "${senhaOficial}"`);
 
@@ -73,6 +90,7 @@ export default function LoginScreen({ navigation }: Props) {
             apelido: 'Admin'
           };
           setUsername(''); setSenha(''); setLoading(false);
+          // Encaminha a sessão ativa para o Menu Principal injetando o payload do Admin
           navigation.navigate('HomeScreen', { usuarioLogado: usuarioAdmin });
           return;
         } else {
@@ -81,7 +99,7 @@ export default function LoginScreen({ navigation }: Props) {
             'Acesso Master Negado', 
             'A senha digitada não corresponde à credencial do Administrador.\n\n(Dica: se esqueceu a senha alterada, digite a senha "reset" para voltar ao padrão)'
           );
-          return; // Trava o drop-through
+          return; // Bloqueia a execução para evitar que o Admin caia nas queries normais abaixo
         }
       } catch (e) {
         console.error('Erro ao ler credencial master:', e);
@@ -89,13 +107,16 @@ export default function LoginScreen({ navigation }: Props) {
     }
 
     // --------------------------------------------------------------------------------
-    // 2. VALIDAÇÃO DE OPERADORES COMUNS (WEB)
+    // CANAL C: VALIDAÇÃO DE OPERADORES COMUNS (COMPORTAMENTO MULTIPLATAFORMA)
     // --------------------------------------------------------------------------------
+    
+    // C.1 - Ambiente de Produção / Simulação WEB (AsyncStorage Mock)
     if (Platform.OS === 'web') {
       try {
         const clientesRaw = await AsyncStorage.getItem('@meatpack_web:clientes');
         const clientes = clientesRaw ? JSON.parse(clientesRaw) : [];
 
+        // Varre a coleção simulada buscando casamento de chaves por e-mail ou apelido comercial
         const op = clientes.find((c: any) => 
           c.email.trim().toLowerCase() === usuarioLimpo || 
           c.apelido.trim().toLowerCase() === usuarioLimpo
@@ -120,11 +141,10 @@ export default function LoginScreen({ navigation }: Props) {
       return;
     }
 
-    // --------------------------------------------------------------------------------
-    // 3. VALIDAÇÃO DE OPERADORES COMUNS (MOBILE / SQLITE)
-    // --------------------------------------------------------------------------------
+    // C.2 - Ambiente de Produção MOBILE / DISPOSITIVOS NATIVOS (Queries em SQLite)
     try {
       const db = SQLite.openDatabaseSync('meatpack.db');
+      // Consulta o SQLite de forma assíncrona aplicando filtros em LowerCase para blindar a busca
       const resultado: any = await db.getFirstAsync(
         'SELECT * FROM clientes WHERE LOWER(email) = ? OR LOWER(apelido) = ?', 
         [usuarioLimpo, usuarioLimpo]
@@ -140,17 +160,20 @@ export default function LoginScreen({ navigation }: Props) {
       }
     } catch (error) {
       setLoading(false);
-      exibirAlerta('Erro Técnico', 'Falha ao consultar o SQLite.');
+      exibirAlerta('Erro Técnico', 'Falha ao consultar o banco local SQLite.');
     }
   };
 
+  // --- INTERFACE VISUAL DA TELA ---
   return (
     <View style={styles.container}>
       <View style={styles.loginCard}>
+        {/* Logotipo/Ícone representativo da fachada do estabelecimento */}
         <Icon name="storefront" size={48} color={theme?.colors?.primary || '#7A1E1E'} style={styles.logoIcon} />
         <Text style={styles.title}>System Meatpack</Text>
         <Text style={styles.subtitle}>Controle de Logística & Estoque</Text>
 
+        {/* INPUT: IDENTIFICADOR DO OPERADOR */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Usuário ou E-mail</Text>
           <TextInput 
@@ -158,17 +181,18 @@ export default function LoginScreen({ navigation }: Props) {
             placeholder="Digite seu usuário" 
             value={username}
             onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
+            autoCapitalize="none" // Impede correções automáticas de maiúsculas em logins
+            autoCorrect={false}   // Desativa sugestões do dicionário do aparelho
           />
         </View>
 
+        {/* INPUT: CREDENCIAL DE SEGURANÇA */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Senha</Text>
           <TextInput 
             style={styles.input} 
             placeholder="Digite sua senha" 
-            secureTextEntry
+            secureTextEntry     // Aplica a máscara de proteção de caracteres (caractere oculto)
             value={senha}
             onChangeText={setSenha}
             autoCapitalize="none"
@@ -176,8 +200,10 @@ export default function LoginScreen({ navigation }: Props) {
           />
         </View>
 
+        {/* BOTÃO DE SUBMISSÃO DA SESSÃO */}
         <TouchableOpacity style={styles.btnEntrar} onPress={handleLogin} disabled={loading}>
           {loading ? (
+            // Exibe indicador giratório dinâmico impedindo cliques repetitivos durante o processamento
             <ActivityIndicator color="#FFF" />
           ) : (
             <>
@@ -191,6 +217,9 @@ export default function LoginScreen({ navigation }: Props) {
   );
 }
 
+// ============================================================================
+// --- DESIGN E ESTILIZAÇÃO VISUAL (STYLESHEET) ---
+// ============================================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'rgba(245, 245, 220, 0.9)', justifyContent: 'center', padding: 20 },
   loginCard: { backgroundColor: '#FFF', padding: 24, borderRadius: 12, borderWidth: 1, borderColor: '#e3e3e3', width: '100%', maxWidth: 400, alignSelf: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
@@ -203,4 +232,3 @@ const styles = StyleSheet.create({
   btnEntrar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme?.colors?.primary || '#7A1E1E', padding: 14, borderRadius: 6, gap: 8, marginTop: 8 },
   btnTexto: { color: '#FFF', fontWeight: 'bold', fontSize: 16 }
 });
-
