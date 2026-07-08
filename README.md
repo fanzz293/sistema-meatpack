@@ -1,281 +1,60 @@
-# Sistema MeatPack - Gestão de Estoque para Açougue
+# Sistema MeatPack - Gestão de estoque e logística para açougue
 
 ![React Native](https://img.shields.io/badge/React_Native-0.74.0-blue.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg)
 ![Expo](https://img.shields.io/badge/Expo-54.0-000020.svg)
 
-Projeto de extensão desenvolvido durante as aulas da disciplina Programação para Dispositivos Móveis em Aplicativos Android, do curso de Sistemas de Informação da Faculdade Estácio, trazendo solução para uma situação comum no mundo real das empresas: a necessidade de automação da gestão de grandes volumes de mercadorias nas empresas.  
 
-Descrição: Sistema de gestão e controle de estoque, desenvolvido para a empresa Meatpack, para o controle preciso de produtos, pedidos e movimentação de estoque. 
-
-## Funcionalidades Principais
-
-### Autenticação e Segurança
-- **Cadastro de Funcionários**: Sistema completo de registro com validação de CPF e senha segura
-- **Login Seguro**: Autenticação com email e senha criptografada
-- **Controle de Acessos**: Diferentes níveis de permissão para usuários
-
-### Gestão de Produtos
-- **Cadastro de Produtos**: Inclusão de produtos com código, descrição, categoria, quantidade, preço e fornecedor
-- **Consulta de Estoque**: Visualização completa do estoque com filtros e busca
-- **Atualização em Tempo Real**: Estoque atualizado automaticamente após cada movimentação
-- **Categorização**: Organização por categorias (Bovina, Suína, Aves, Outros)
-
-### Gestão de Pedidos
-- **Montagem de Pedidos**: Interface intuitiva para criação de pedidos de compra
-- **Seleção de Fornecedores**: Associação de pedidos a fornecedores específicos
-- **Acompanhamento em Tempo Real**: Status de pedidos (aguardando/entregue)
-- **Validação de Entrada**: Confirmação de recebimento e atualização automática do estoque
-
-### Controle de Movimentações
-- **Registro de Saídas**: Sistema para baixa de estoque com motivos pré-definidos:
-  - Preparo para a área de vendas
-  - Troca com fornecedor por avaria
-  - Troca com fornecedor por erro na entrega
-  - Reservado para cliente
-- **Histórico Completo**: Registro de todas as movimentações com data e motivo
-- **Relatórios**: Controle de entradas e saídas por período
-
-### Interface e Experiência do Usuário
-- **Design Responsivo**: Interface adaptada para dispositivos móveis
-- **Animações Suaves**: Transições e feedback visual elegante
-- **Navegação Intuitiva**: Fluxo de telas otimizado para produtividade
-- **Busca Avançada**: Filtros por nome, código, categoria e fornecedor
-
-## Tecnologias Utilizadas
-
-- **Frontend**: React Native com TypeScript
-- **Navegação**: React Navigation
-- **Armazenamento**: SQLite e AsyncStorage
-- **UI/UX**: Componentes personalizados com design system próprio
-- **Ferramentas**: Expo para desenvolvimento e build
-
-## Pré-requisitos
-
-- Node.js 18.0 ou superior
-- npm ou yarn
-- Expo CLI
-- Dispositivo móvel com Expo Go ou emulador Android/iOS
-
-## Como Executar o Projeto
-
-1. **Clone o repositório**
-```bash
-git clone https://github.com/seu-usuario/sistema-meatpack.git
-cd sistema-meatpack
-```
-
-2. **Instale as dependências**
-```bash
-npm install
-# ou
-yarn install
-```
-
-3. **Execute o projeto**
-```bash
-npx expo start
-```
-
-4. **Escaneie o QR Code**
-- Abra o app Expo Go no seu dispositivo móvel
-- Escaneie o QR code exibido no terminal ou na página web
-
-## Estrutura do Projeto
-
-```
-sistema-meatpack/
-├── src/
-│   ├── components/          # Componentes reutilizáveis
-│   ├── context/            # Contextos do React (Auth)
-│   ├── navigation/         # Configuração de navegação
-│   ├── screens/           # Telas do aplicativo
-│   │   ├── auth/          # Telas de autenticação
-│   │   └── common/        # Telas principais do sistema
-│   ├── services/          # Serviços (API, database)
-│   └── styles/            # Temas e estilos
-├── assets/                # Imagens e recursos
-└── App.tsx               # Ponto de entrada do app
-```
-
-## Status do Projeto
-
- **Concluído** - Todas as funcionalidades principais implementadas
-
- **Próximas Melhorias**:
-- Relatórios analíticos de movimentação
-- Sincronização em nuvem
-- Integração com sistemas de emissão de notas fiscais
-- Controle de validade de produtos
-
-## Autor
-
-Desenvolvido por Fabrício Vieira - fabricio_3066@hotmail.com
-
-## Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Sistema de gestão e controle de estoque para o controle preciso de produtos, pedidos e movimentação de estoque. Desenvolvido para atender às demandas de conferência de cargas, auditoria e gerenciamento de inventário físico de produtos cárneos.
 
 ---
 
-## Dicas de Uso
+## 📝 Descrição Resumida do Sistema
 
-1. **Cadastro de Produtos**: Utilize códigos únicos para cada produto para melhor controle
-2. **Pedidos**: Sempre confirme o recebimento para atualizar o estoque automaticamente
-3. **Saídas**: Registre sempre o motivo correto para manter o histórico preciso
-4. **Backup**: Exporte regularmente seus dados para preventir perda de informação.
-5. 
-### 2. **Resumo Executivo**
-```markdown
-**Desafio**: Desenvolver um sistema móvel completo para gestão de estoque 
-especificamente para açougues, substituindo processos manuais e planilhas.
+ Aplicação comercial híbrida (focada em dispositivos móveis através do Expo, mas com suporte a simulações completas em ambiente Web). O sistema resolve problemas comuns de consistência de inventário em frigoríficos e açougues, permitindo a separação de permissões entre Administradores e Operadores comerciais. O aplicativo adota uma arquitetura isolada de persistência, utilizando banco de dados relacional local para o aplicativo móvel e emulando o mesmo comportamento via armazenamento local nos navegadores.
 
-**Solução**: MeatPack - aplicativo intuitivo que oferece controle em tempo real 
-de produtos, pedidos e movimentações com interface otimizada para produtividade.
+---
 
-**Destaques**: 
-• 100% offline com sincronização local
-• Interface específica para o segmento de açougues
-• Processos validados com profissionais do ramo
-```
+## ✨ Principais Funcionalidades
 
-### 3. **Problema & Solução (Antes/Depois)**
-**Antes (Problemas Identificados)**:
-- Controle manual em planilhas sujeito a erros
-- Dificuldade em acompanhar pedidos em andamento
-- Falta de histórico de movimentações
-- Processos demorados para registrar saídas
+* 👥 **Gestão hierárquica de acesso:** Fluxo de autenticação blindado para Operadores e uma Conta Master de Administrador, permitindo o gerenciamento completo de credenciais e auditoria de usuários.
+* 📦 **Controle de estoque inteligente:** Consulta, filtragem por categoria, busca textual por descrição e ordenação avançada de insumos por peso ou valor monetário.
+* 🏬 **Edição inline de lotes:** Janela modal integrada diretamente à consulta de inventário, facilitando a alteração imediata de códigos, descrições e fornecedores sem quebras de navegação.
+* 📋 **Gestão dinâmica de pedidos:** Agendamento em lote de ordens de compra vinculadas a fornecedores homologados, com seletores visuais customizados de data e hora.
+* 🚚 **Auditoria temporal (Kardex):** Registro automático e imutável de fluxos de entrada (recebimento de pedidos com carimbo de validação de Nota Fiscal) e saídas imediatas (área de vendas, descartes ou avarias) com atualização em tempo real do saldo em quilogramas (kg).
 
-**Depois (Solução MeatPack)**:
-- Interface unificada para todas as operações
-- Atualização automática do estoque
-- Acompanhamento visual do status de pedidos
-- Histórico completo com motivos de saída
+---
 
-### 4. **Processo de Design & Desenvolvimento**
+## 🛠️ Tecnologias Uuilizadas
 
-#### Pesquisa e Discovery
-- Entrevistas com proprietários de açougues
-- Análise de processos manuais existentes
-- Definição de personas (gerente, funcionário do estoque)
+O sistema foi construído sob uma arquitetura moderna e de alta performance, exigindo conformidade mínima com os ecossistemas abaixo:
 
-#### Arquitetura da Informação
-```
-Mapa de Navegação:
-Login → Menu Principal
-       ├── Consultar Estoque
-       ├── Cadastrar Produto
-       ├── Adicionar Pedido
-       ├── Acompanhar Pedidos
-       └── Registrar Saída
-```
+* **Expo SDK 51:** Utilizado como base do ecossistema, aproveitando as novas diretrizes assíncronas do framework.
+* **React Native 0.74:** Framework principal para renderização de componentes visuais fluidos a 60 FPS utilizando a UI Thread nativa.
+* **TypeScript 5.0+:** Injeção de tipagem estrita (`Type Safety`) em parâmetros de rotas e mapeamento de payloads de dados.
+* **SQLite (`expo-sqlite`):** Mecanismo de persistência relacional local utilizado no ambiente nativo/mobile, utilizando a API moderna `openDatabaseSync` e transações atômicas com `withTransactionAsync`.
+* **AsyncStorage:** Utilizado para a persistência de sessões de login no mobile e para a emulação completa de tabelas e histórico (Kardex) no ambiente Web.
+* **Expo Vector Icons (MaterialIcons):** Identidade visual baseada em padrões universais de iconografia logística.
 
-#### Design System
-- **Cores**: Paleta terrosa (vermelhos, marrons) remetendo ao segmento
-- **Tipografia**: Inter para legibilidade
-- **Componentes**: Botões, cards e modais consistentes
-- **Ícones**: Material Icons para familiaridade
+---
 
-### 5. **Telas Principais (Demonstração Visual)**
+## 🚀 Como executar o projeto?
 
-#### Tela de Login & Cadastro
-**Imagens**: 
-- Mockup da tela de login com background temático
-- Fluxo de cadastro com validações
+Siga os passos abaixo para configurar e rodar o projeto localmente em sua máquina de desenvolvimento:
 
-**Destaques**:
-- Validação de CPF e senha segura
-- Interface limpa e profissional
-- Animações de loading
+### 1. Clone o repositório
+    git clone [https://github.com/seu-usuario/sistema-meatpack.git](https://github.com/seu-usuario/sistema-meatpack.git)
+    cd sistema-meatpack
 
-#### Consulta de Estoque
-**Imagens**:
-- Lista de produtos com informações completas
-- Modal de detalhes do produto
-- Funcionalidade de busca e filtros
+### 2. Instale as dependências
+    npm install
+    # ou se preferir utilizar o yarn:
+    # yarn install
 
-**Features**:
-- Visualização em tabela otimizada
-- Busca por nome, código ou categoria
-- Ações rápidas (editar, fazer pedido, ver histórico)
+### 3. Execute o projeto
+    npx expo start
 
-#### Cadastro de Produtos
-**Imagens**:
-- Formulário de cadastro
-- Picker de categorias
-- Campo de fornecedor com sugestões
-
-**Destaques**:
-- Geração automática de código
-- Validação em tempo real
-- Interface de seleção intuitiva
-
-#### Gestão de Pedidos
-**Imagens**:
-- Tela de criação de pedidos
-- Seleção de fornecedores
-- Lista de pedidos em andamento
-
-**Workflow**:
-1. Seleção de fornecedor
-2. Adição de itens com quantidades
-3. Agendamento de entrega
-4. Acompanhamento de status
-
-#### Registro de Saídas
-**Imagens**:
-- Modal de seleção de produtos
-- Dropdown de motivos pré-definidos
-- Interface de confirmação
-
-**Motivos Implementados**:
-- Preparo para área de vendas
-- Troca por avaria/erro na entrega
-- Reservado para cliente
-
-### 6. **Fluxos de Usuário (User Flows)**
-
-#### Fluxo: Registrar Saída de Produto
-```
-1. Acessar "Registrar Saída"
-2. Selecionar produto do dropdown
-3. Informar quantidade
-4. Escolher motivo no picker
-5. Confirmar registro
-6. → Estoque atualizado automaticamente
-7. → Redirecionamento para consulta
-```
-
-#### Fluxo: Criar e Acompanhar Pedido
-```
-1. Cadastrar pedido com fornecedor
-2. Adicionar itens e quantidades
-3. Agendar data de entrega
-4. Acompanhar status "aguardando"
-5. Marcar como "entregue"
-6. → Estoque atualizado automaticamente
-```
-
-### 7. **Diferenciais Técnicos**
-
-#### Arquitetura
-- **Frontend**: React Native com TypeScript
-- **Estado**: Context API para gerenciamento de auth
-- **Navegação**: React Navigation com tipagem forte
-- **Persistência**: SQLite + AsyncStorage
-
-#### UX/UI
-- **Animações**: Transições suaves entre telas
-- **Feedback**: Loadings e confirmações visuais
-- **Acessibilidade**: Contrastes e tamanhos adequados
-- **Performance**: Otimização para dispositivos móveis
-
-
-### 8. **Tecnologias & Ferramentas**
-
-**Desenvolvimento**:
-- React Native · TypeScript · Expo
-- React Navigation · SQLite · Context API
-
-**Versionamento**:
-- Git · GitHub
+### 4. Escaneie o QR Code
+* Abra o aplicativo **Expo Go** no seu dispositivo móvel (disponível para Android e iOS).
+* Certifique-se de que o computador e o celular estão conectados à mesma rede Wi-Fi.
+* Escaneie o QR code exibido no terminal ou na página web aberta pelo bundler do Expo para testar o aplicativo nativamente.
