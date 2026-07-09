@@ -9,10 +9,10 @@ import ConsultarEstoqueScreen from '../screens/common/ConsultarEstoqueScreen';
 import AcompanharPedidosScreen from '../screens/common/AcompanharPedidosScreen';
 import ConfiguracoesScreen from '../screens/common/ConfiguracoesScreen';
 import AdicionarPedidoScreen from '../screens/common/AdicionarPedidoScreen';
-import RegistrarSaidaScreen from '../screens/common/RegistrarSaidaScreen';
 import CadastrarProdutoScreen from '../screens/common/CadastrarProdutoScreen'; 
 import HistoricoProdutoScreen from '../screens/common/HistoricoProdutoScreen';
-
+// Altere a linha 12 para ficar exatamente assim:
+import RegistrarSaidaScreen from '../screens/common/RegistrarSaidaScreen';
 // ============================================================================
 // --- DEFINIÇÃO DO PARAM LIST (TIPAGEM DE ROTAS) ---
 // ============================================================================
@@ -57,7 +57,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function AppNavigator() {
   return (
     // 'initialRouteName' define o ponto de entrada visual padrão assim que o container é montado
-    <Stack.Navigator initialRouteName="Login">
+    <Stack.Navigator id={undefined} initialRouteName="Login">
       
       {/* Fluxo de Segurança: Login inicial sem barras de cabeçalho nativas */}
       <Stack.Screen 

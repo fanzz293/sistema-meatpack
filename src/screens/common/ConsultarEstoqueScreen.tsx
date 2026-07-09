@@ -305,7 +305,7 @@ const ConsultarEstoqueScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.pickerWrapper}>
                   <Picker
                     selectedValue={ordenarPor}
-                    onValueChange={(itemValue) => setOrdenarPor(itemValue as AtributoOrdenacao)}
+                    onValueChange={(itemValue: string) => setOrdenarPor(itemValue as AtributoOrdenacao)}
                     style={styles.inlinePicker}
                   >
                     <Picker.Item label="Nome (A-Z)" value="descricao" />

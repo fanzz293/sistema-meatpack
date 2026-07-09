@@ -22,13 +22,8 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
 // ============================================================================
 export default function AuthNavigator() {
   return (
-    <Stack.Navigator 
-      // 'screenOptions' aplica configurações globais de design e animação para todas as sub-telas da pilha
-      screenOptions={{ 
-        headerShown: false,               // Oculta a barra de topo padrão do SO para permitir designs imersivos (Full Screen)
-        animation: 'slide_from_right'    // Injeta uma transição fluida onde a nova tela surge deslizando da direita para a esquerda
-      }}
-    >
+    // Altere para incluir o id:
+<Stack.Navigator id={undefined} screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
        {/* Tela Inicial do Fluxo: Ponto de partida para inserção de credenciais do operador */}
        <Stack.Screen name="Login" component={LoginScreen} />
        

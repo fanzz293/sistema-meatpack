@@ -273,11 +273,11 @@ const AdicionarPedidoScreen: React.FC<Props> = ({ navigation, route }) => {
                       <View style={styles.pickerContainer}>
                         <Picker 
                           selectedValue={item.produto?.codigo || ''} 
-                          onValueChange={(v) => {
-                            const novosItens = [...itens];
-                            novosItens[index].produto = produtosFiltrados.find(p => p.codigo === Number(v)) || null;
-                            setItens(novosItens);
-                          }} 
+                          onValueChange={(v: string | number) => {
+  const novosItens = [...itens];
+  novosItens[index].produto = produtosFiltrados.find(p => p.codigo === Number(v)) || null;
+  setItens(novosItens);
+}}
                           style={styles.picker} 
                           enabled={!!fornecedorSelecionado} // Fica bloqueado até que uma empresa seja selecionada
                         >

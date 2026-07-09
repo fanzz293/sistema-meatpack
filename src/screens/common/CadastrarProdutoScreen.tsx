@@ -191,7 +191,7 @@ const CadastrarProdutoScreen: React.FC<Props> = ({ navigation }) => {
                   <View style={[styles.inputContainer, styles.flex6]}>
                     <Text style={styles.label}>Categoria</Text>
                     <View style={styles.pickerContainer}>
-                      <Picker selectedValue={item.categoria} onValueChange={(v) => handleRowChange(index, 'categoria', v as any)} style={styles.picker}>
+                      <Picker selectedValue={item.categoria} onValueChange={(v: string) => handleRowChange(index, 'categoria', v as any)}>
                         <Picker.Item label="Bovina" value="Bovina" />
                         <Picker.Item label="Suína" value="Suína" />
                         <Picker.Item label="Aves" value="Aves" />

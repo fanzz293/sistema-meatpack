@@ -11,7 +11,7 @@ import ScreenWrapper from '../../components/ScreenWrapper';
 import AnimatedView from '../../components/AnimatedView';
 import Icon from '@expo/vector-icons/MaterialIcons';
 
-// Tipagem das propriedades de navegação vinculadas à rota atual
+// Tipagem das propriedades de navegação vinculadas à rota de Saídas
 type Props = NativeStackScreenProps<RootStackParamList, 'RegistrarSaida'>;
 
 // Lista de justificativas operacionais padrão para descarte ou movimentação de insumos
@@ -43,7 +43,12 @@ const exibirAlerta = (titulo: string, mensagem: string, botoes?: { text: string;
   }
 };
 
-const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
+/**
+ * Tela Operacional: Registro de Saídas em Lote.
+ * Permite dar baixa imediata de múltiplos itens simultaneamente, aplicando validações rígidas
+ * contra saldo de estoque insuficiente e integrando um buscador modular reativo.
+ */
+export default function RegistrarSaidaScreen({ navigation }: Props) {
   // --- ESTADOS REATIVOS DA INTERFACE ---
   const [produtosComEstoque, setProdutosComEstoque] = useState<Produto[]>([]);
   const [itensSaida, setItensSaida] = useState<RowSaida[]>([{ produto: null, quantidade: '', motivo: '' }]);
@@ -211,7 +216,8 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
                   <View style={[styles.inputGroup, styles.flex6]}>
                     <Text style={styles.label}>Motivo da Saída</Text>
                     <View style={styles.pickerContainer}>
-                      <Picker selectedValue={item.motivo} onValueChange={(val) => handleRowChange(index, 'motivo', val)} style={styles.picker}>
+                      {/* CORRIGIDO: Inserido tipo explícito (val: string) no callback do Picker */}
+                      <Picker selectedValue={item.motivo} onValueChange={(val: string) => handleRowChange(index, 'motivo', val)} style={styles.picker}>
                         <Picker.Item label="Selecione o motivo..." value="" color="#888" />
                         {MOTIVOS_SAIDA.map((m, idx) => <Picker.Item key={idx} label={m} value={m} />)}
                       </Picker>
@@ -273,10 +279,10 @@ const RegistrarSaidaScreen: React.FC<Props> = ({ navigation }) => {
       </Modal>
     </ScreenWrapper>
   );
-};
+}
 
 // ============================================================================
-// --- FOLHA DE ESTILOS DA INTERFACE (STYLESHEET) ---
+// --- DESIGN SYSTEM / ESTILIZAÇÃO DO COMPONENTE (STYLESHEET) ---
 // ============================================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'rgba(245, 245, 220, 0.9)' },
@@ -310,3 +316,4 @@ const styles = StyleSheet.create({
   produtoNome: { fontSize: 15, fontWeight: 'bold', color: theme.colors.text },
   produtoDetalhes: { fontSize: 13, color: theme.colors.textLight }
 });
+
